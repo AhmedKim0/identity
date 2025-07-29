@@ -1,17 +1,13 @@
-﻿using Microsoft.AspNetCore.Identity;
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Identity.Application.DTO;
+using Identity.Application.DTO.UserDTOs;
 
 namespace Identity.Application.Int
 {
-    internal interface IUserServices
+    public interface IUserServices
     {
-        Task<IdentityResult> DeleteUserAsync(int userId /*,string otp*/ );
-        Task<IdentityResult> UpdateUserAsync(int userId, string newEmail, string newFullName /*,string otp*/);
-        Task<IdentityResult> CreateUserAsync(string email, string password, string fullName);
+        Task<Response<List<UserDTO>>> GetAllUsers();
+        Task<Response<string>> CreateUserAsync(string email, string password, string fullName);
+        Task<Response<string>> UpdateUserAsync(int userId, string newEmail, string newFullName);
+        Task<Response<string>> DeleteUserAsync(int userId);
     }
 }

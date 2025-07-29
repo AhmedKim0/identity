@@ -1,9 +1,13 @@
 ﻿using Identity.Domain.Entities;
 using Identity.Domain.SharedEntities;
 
-namespace Identity.Reposatories.Reposatory
+using Microsoft.EntityFrameworkCore;
+
+using System.Linq.Expressions;
+
+namespace Identity.Application.Reposatory
 {
-    public interface IAsyncRepository<TEntity> where TEntity : AuditableEntity
+    public interface IAsyncRepository<TEntity> where TEntity : BaseEntity
     {
         Task<TEntity?> GetByIdAsync(int id);
         Task<List<TEntity>> GetAllAsync();
@@ -11,6 +15,9 @@ namespace Identity.Reposatories.Reposatory
         Task UpdateAsync(TEntity entity);
         Task DeleteAsync(TEntity entity); 
         Task<int> SaveChangesAsync();
+        DbSet<TEntity> Dbset();
+        Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate);
+
     }
 
 }

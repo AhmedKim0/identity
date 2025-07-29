@@ -11,7 +11,7 @@ using System.Security.Claims;
 
 namespace Identity.DAL
 {
-    public class AppDbContext : IdentityDbContext<AppUser, AppRole,int>
+    public class AppDbContext : IdentityDbContext<AppUser, AppRole, int>
     {
 
         private readonly IHttpContextAccessor _httpContextAccessor;

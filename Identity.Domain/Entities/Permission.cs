@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Identity.Domain.SharedEntities;
 
 namespace Identity.Domain.Entities
 {
-    public class Permission
+    public class Permission : AuditableEntity
     {
-        public int Id { get; set; }
         public string Name { get; set; } = null!;
+        public ICollection< RolePermission> RolePermissions { get; set; } = null!;
     }
 
 }

@@ -1,8 +1,7 @@
-﻿using Identity.Reposatories.Repos;
+﻿using Identity.Application.DTO;
+using Identity.Application.DTO.UserDTOs;
+using Identity.Application.Int;
 
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Identity.API.Controllers
@@ -11,21 +10,20 @@ namespace Identity.API.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly UsersServices _userServices;
+        private readonly IUserServices _userServices;
 
-        public UserController(UsersServices userServices)
+        public UserController(IUserServices userServices)
         {
             _userServices = userServices ?? throw new ArgumentNullException(nameof(userServices));
         }
 
-        [Authorize(Policy = "Permission.User.Create")]
-        [HttpGet]
-        public async Task<IActionResult> CreateUser(string email, string password, string fullName)
+        [HttpPost("CreateUser")]
+        public async Task<IActionResult> CreateUser(CreateUserDTO createUserDTO)
         {
             try
             {
-                var result = await _userServices.CreateUserAsync(email, password, fullName);
-                if (!result.Succeeded)
+                var result = await _userServices.CreateUserAsync(createUserDTO.email, createUserDTO.password, createUserDTO.fullName);
+                if (!result.Success)
                 {
                     return BadRequest(result);
                 }
@@ -34,7 +32,44 @@ namespace Identity.API.Controllers
             catch
             (Exception ex)
             {
-                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+                return StatusCode(500, Response<UserDTO>.Failure(new Error(ex.Message)));
+            }
+        }
+        [HttpPost("UpdateUser")]
+        public async Task<IActionResult> UpdateUser(UpdateUserDTO updateUserDTO)
+        {
+            try
+            {
+                var result = await _userServices.UpdateUserAsync(updateUserDTO.Id , updateUserDTO.NewEmail, updateUserDTO.NewFullName);
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+                return Ok(result);
+            }
+            catch
+            (Exception ex)
+            {
+                return StatusCode(500, Response<UserDTO>.Failure(new Error(ex.Message)));
+            }
+        }
+        [HttpDelete("DeleteUser")]
+
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            try
+            {
+                var result = await _userServices.DeleteUserAsync(id);
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+                return Ok(result);
+            }
+            catch
+            (Exception ex)
+            {
+                return StatusCode(500, Response<UserDTO>.Failure(new Error(ex.Message)));
             }
         }
     }

@@ -9,6 +9,8 @@ namespace Identity.Domain.Entities
 {
     public class AppUser : IdentityUser<int>
     {
+        public string? RefreshToken { get; set; }
+        public DateTime? RefreshTokenExpiryTime { get; set; }
         public DateTime CreatedAtUtc { get; set; }
         public Guid? CreatedBy { get; set; }
         public DateTime? UpdatedAtUtc { get; set; }

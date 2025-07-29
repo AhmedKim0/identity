@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Identity.Domain.SharedEntities;
 
 namespace Identity.Domain.Entities
 {
-    public class RolePermission
+    public class RolePermission:AuditableEntity
     {
         public int RoleId { get; set; }
         public AppRole Role { get; set; }

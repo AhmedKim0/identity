@@ -8,26 +8,25 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Identity.Reposatories.Reposatory
+namespace Identity.Application.Reposatory
 {
-    public class EfRepository<TEntity> : IAsyncRepository<TEntity> where TEntity : AuditableEntity
+    public class AsyncReposatory<TEntity> : IAsyncRepository<TEntity> where TEntity : BaseEntity
     {
         private readonly AppDbContext _context;
-        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public EfRepository(AppDbContext context, IHttpContextAccessor httpContextAccessor)
+        public AsyncReposatory(AppDbContext context)
         {
             _context = context;
-            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<TEntity?> GetByIdAsync(int id)
         {
-            return await _context.Set<TEntity>()
+            return await _context.Set<TEntity>().AsNoTracking()
                 .Where(e => !e.IsDeleted && e.Id == id).FirstOrDefaultAsync();
         }
 
@@ -37,7 +36,15 @@ namespace Identity.Reposatories.Reposatory
                 .Where(e => !e.IsDeleted)
                 .ToListAsync();
         }
+        public async Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate)
+        {
+            return await _context.Set<TEntity>().AsNoTracking().FirstOrDefaultAsync(predicate);
+        }
 
+        public DbSet<TEntity> Dbset()
+        {
+           return _context.Set<TEntity>();
+        }
         public async Task AddAsync(TEntity entity)
         {
 
