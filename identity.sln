@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Domain", "Identity
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Application", "Identity.Reposatories\Identity.Application.csproj", "{F3F67058-92A1-4300-B427-7E031C5D3B4A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MigrationRunner", "MigrationRunner\MigrationRunner.csproj", "{C11A0209-555A-4F9D-9DD2-D86DAEA30260}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Infrastructure", "Identity.Infrastructure\Identity.Infrastructure.csproj", "{087E0BA6-90D7-44DA-B587-673E412EF206}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{F3F67058-92A1-4300-B427-7E031C5D3B4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F3F67058-92A1-4300-B427-7E031C5D3B4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F3F67058-92A1-4300-B427-7E031C5D3B4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C11A0209-555A-4F9D-9DD2-D86DAEA30260}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C11A0209-555A-4F9D-9DD2-D86DAEA30260}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C11A0209-555A-4F9D-9DD2-D86DAEA30260}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C11A0209-555A-4F9D-9DD2-D86DAEA30260}.Release|Any CPU.Build.0 = Release|Any CPU
+		{087E0BA6-90D7-44DA-B587-673E412EF206}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{087E0BA6-90D7-44DA-B587-673E412EF206}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{087E0BA6-90D7-44DA-B587-673E412EF206}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{087E0BA6-90D7-44DA-B587-673E412EF206}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -5,6 +5,7 @@ using Identity.Application.Reposatory;
 using Identity.Application.UOW;
 using Identity.DAL;
 using Identity.Domain.Entities;
+using Identity.Infrastructure.EmailServices;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -30,18 +31,26 @@ internal class Program
         builder.Services.AddIdentity<AppUser, AppRole>()
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
-        var useAuthMiddleware = builder.Configuration.GetValue<bool>("UseAuthMiddleware");
+        #region Enities
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddScoped<IAsyncRepository<Permission>, AsyncReposatory<Permission>>();
         builder.Services.AddScoped<IAsyncRepository<RolePermission>, AsyncReposatory<RolePermission>>();
+        builder.Services.AddScoped<IAsyncRepository<OTPCode>, AsyncReposatory<OTPCode>>();
+        builder.Services.AddScoped<IAsyncRepository<OTPTry>, AsyncReposatory<OTPTry>>();
+        builder.Services.AddScoped<IAsyncRepository<EmailVerification>, AsyncReposatory<EmailVerification>>();
+        builder.Services.AddScoped<IAsyncRepository<EmailBody>, AsyncReposatory<EmailBody>>();
+        #endregion
 
-
+        #region Services
         builder.Services.AddScoped<IRoleService, RoleService>();
         builder.Services.AddScoped<IUserServices, UsersServices>();
         builder.Services.AddScoped<ITokenService,TokenService>();
         builder.Services.AddScoped<IPermissionService, PermissionService>();
         builder.Services.AddMemoryCache();
         builder.Services.AddScoped<IPolicyStore, InMemoryPolicyStore>();
+        builder.Services.AddScoped<IOTPService, OTPService>();
+        builder.Services.AddScoped<IEmailService, EmailService>();
+        #endregion
 
         var jwtSection = builder.Configuration.GetSection("JwtSettings");
         builder.Services.Configure<JwtSettings>(jwtSection);
@@ -123,11 +132,9 @@ internal class Program
                 builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
             });
         });
-        // Add controllers and swagger
         builder.Services.AddControllers();
-        builder.Services.AddEndpointsApiExplorer(); // Needed for Swagger
+        builder.Services.AddEndpointsApiExplorer(); 
         builder.Services.AddSwaggerGen();
-        //builder.Services.AddOpenApi();
 
         var app = builder.Build();
 
@@ -146,7 +153,7 @@ internal class Program
         app.UseAuthentication();
 
         app.UseAuthorization();
-        if(useAuthMiddleware)
+        if (builder.Configuration.GetValue<bool>("UseAuthMiddleware"))
         app.UseMiddleware<DynamicAuthorizationMiddleware>();
         app.MapControllers();
         app.Run();

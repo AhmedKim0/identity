@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Identity.DAL\Identity.DAL.csproj" />
     <ProjectReference Include="..\Identity.Domain\Identity.Domain.csproj" />
+    <ProjectReference Include="..\Identity.Infrastructure\Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\Identity.Reposatories\Identity.Application.csproj" />
 	  <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
 

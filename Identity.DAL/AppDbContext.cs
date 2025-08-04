@@ -23,9 +23,12 @@ namespace Identity.DAL
             _httpContextAccessor = httpContextAccessor;
         }
         public DbSet<AppUser> Users { get; set; }
-        public DbSet<OTPCode> oTPCodes { get; set; }
         public DbSet<Permission> Permissions { get; set; }
         public DbSet<RolePermission> RolePermissions { get; set; }
+
+        public DbSet<OTPCode> oTPCodes { get; set; }
+        public DbSet<OTPTry> oTPTries { get; set; }
+        public DbSet<EmailBody> emailBodies { get; set; }
 
         private Guid? GetCurrentUserId()
         {

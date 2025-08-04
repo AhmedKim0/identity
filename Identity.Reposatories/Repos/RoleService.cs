@@ -2,6 +2,8 @@
 using Identity.Application.DTO;
 using Identity.Application.DTO.RoleDTOs;
 using Identity.Application.Int;
+using Identity.Application.UOW;
+using Identity.DAL;
 using Identity.Domain.Entities;
 
 using Microsoft.AspNetCore.Identity;
@@ -13,11 +15,14 @@ namespace Identity.Application.Repos
     {
         private readonly RoleManager<AppRole> _roleManager;
         private readonly UserManager<AppUser> _userManager;
+        private readonly IUnitOfWork _unitOfWork ;
+        private readonly AppDbContext _context;
 
-        public RoleService(RoleManager<AppRole> roleManager, UserManager<AppUser> userManager)
+        public RoleService(RoleManager<AppRole> roleManager, UserManager<AppUser> userManager, IUnitOfWork unitOfWork)
         {
             _roleManager = roleManager ?? throw new ArgumentNullException(nameof(roleManager));
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         }
 
         public async Task<Response<List<AppRole>>> GetAllAsync()
@@ -74,6 +79,42 @@ namespace Identity.Application.Repos
                 return Response<RoleDTO>.Failure(errors);
             }
             return Response<RoleDTO>.SuccessResponse(new RoleDTO { Id = role.Data.Id, Name = role.Data.Name });
+
+        }
+        public async Task<Response<bool>> AssignRolesToUserAsync(int UserId, List<int> rolesIds)
+        {
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                
+                var user = await _userManager.FindByIdAsync(UserId.ToString());
+                if (user == null || user.Email== "admin@admin.com")
+                { return Response<bool>.Failure(new Error("user not found")); }
+
+                var Listroles =await _roleManager.Roles
+                    .Where(r => rolesIds.Contains(r.Id))
+                    .ToListAsync();
+                var ListrolesIds= Listroles.Select(r => r.Id).ToList();
+                var isAllRoleExist = rolesIds.All(id => ListrolesIds.Contains(id));
+                if (!isAllRoleExist)
+                { return Response<bool>.Failure(new Error("one Role or all not exist")); }
+
+
+
+                var userRoles = _context.UserRoles.Where(ur => ur.UserId == UserId).ToList();
+                _context.UserRoles.RemoveRange(userRoles);
+
+                var roleNames = Listroles.Select(r => r.Name).ToList();
+                await _userManager.AddToRolesAsync(user, roleNames);
+                await _unitOfWork.CommitTransactionAsync();
+                return Response<bool>.SuccessResponse(true);
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+
+                throw ex;
+            }
 
         }
 

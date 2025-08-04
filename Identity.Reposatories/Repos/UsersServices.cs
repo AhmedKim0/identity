@@ -1,11 +1,14 @@
 ﻿using Identity.Application.DTO;
 using Identity.Application.DTO.UserDTOs;
 using Identity.Application.Int;
+using Identity.Application.Reposatory;
 using Identity.Application.UOW;
 using Identity.Domain.Entities;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+
+using System.Text;
 
 namespace Identity.Application.Repos
 {
@@ -13,7 +16,7 @@ namespace Identity.Application.Repos
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly IUnitOfWork _unitOfWork;
-
+        private readonly IAsyncRepository<OTPCode> _otpRepo;
 
         public UsersServices(UserManager<AppUser> userManager, IUnitOfWork unitOfWork)
         {
@@ -102,6 +105,7 @@ namespace Identity.Application.Repos
 
             return Response<string>.SuccessResponse("User updated successfully");
         }
+
 
         public async Task<Response<string>> DeleteUserAsync(int userId)
         {

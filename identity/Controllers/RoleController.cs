@@ -44,6 +44,21 @@ namespace Identity.API.Controllers
             }
         }
         [Authorize]
+        [HttpGet("AssignRolesToUser")]
+        public async Task<IActionResult> AssignRolesToUser([FromBody] AssignRolesToUserDTO dTO)
+        {
+            try
+            {
+                var role = await _roleService.AssignRolesToUserAsync(dTO.userId, dTO.ids);
+                if (role == null) return NotFound();
+                return Ok(role);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<RoleDTO>.Failure(new Error(ex.Message)));
+            }
+        }
+        [Authorize]
 
         [HttpPost("Create")]
         public async Task<IActionResult> Create([FromBody] string roleName)

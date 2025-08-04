@@ -4,6 +4,7 @@ using Identity.DAL;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Identity.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250801205137_OTPv2")]
+    partial class OTPv2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -141,34 +144,6 @@ namespace Identity.DAL.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Identity.Domain.Entities.EmailBody", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("emailBodies", (string)null);
-                });
-
             modelBuilder.Entity("Identity.Domain.Entities.EmailVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -195,7 +170,7 @@ namespace Identity.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("EmailVerification", (string)null);
+                    b.ToTable("emailVerifications");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.OTPCode", b =>
@@ -210,9 +185,6 @@ namespace Identity.DAL.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("CreatedAtUTC")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("EmailVerificationId")
                         .HasColumnType("int");
 
@@ -225,14 +197,11 @@ namespace Identity.DAL.Migrations
                     b.Property<bool>("IsExpired")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsUsed")
-                        .HasColumnType("bit");
-
                     b.HasKey("Id");
 
                     b.HasIndex("EmailVerificationId");
 
-                    b.ToTable("oTPCodes", (string)null);
+                    b.ToTable("oTPCodes");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.OTPTry", b =>
@@ -259,7 +228,7 @@ namespace Identity.DAL.Migrations
 
                     b.HasIndex("OTPCodeId");
 
-                    b.ToTable("oTPTries", (string)null);
+                    b.ToTable("oTPTries");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Permission", b =>
@@ -291,7 +260,7 @@ namespace Identity.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Permissions", (string)null);
+                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.RolePermission", b =>
@@ -329,7 +298,7 @@ namespace Identity.DAL.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("RolePermissions", (string)null);
+                    b.ToTable("RolePermissions");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
