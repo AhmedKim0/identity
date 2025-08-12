@@ -1,4 +1,6 @@
-﻿namespace Identity.Infrastructure.EmailServices
+﻿using Identity.Application.DTO;
+
+namespace Identity.Application.Int
 {
     public interface IEmailService
     {

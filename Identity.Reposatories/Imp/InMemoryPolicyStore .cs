@@ -5,7 +5,7 @@ using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace Identity.Application.Repos
+namespace Identity.Application.Imp
 {
     public class InMemoryPolicyStore : IPolicyStore
     {

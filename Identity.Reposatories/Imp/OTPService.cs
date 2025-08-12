@@ -4,7 +4,6 @@ using Identity.Application.Int;
 using Identity.Application.Reposatory;
 using Identity.Application.UOW;
 using Identity.Domain.Entities;
-using Identity.Infrastructure.EmailServices;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -15,8 +14,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Identity.Application.Repos
+namespace Identity.Application.Imp
 {
+    
     public class OTPService : IOTPService
     {
         private readonly IAsyncRepository<EmailVerification> _emailVerificationRepo;
@@ -25,6 +25,11 @@ namespace Identity.Application.Repos
         private readonly IConfiguration _configuration;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEmailService _emailService;
+
+        public OTPService()
+        {
+
+        }
 
         public OTPService(IAsyncRepository<EmailVerification> emailVerificationRepo, IAsyncRepository<OTPCode> otpCodeRepo, IAsyncRepository<OTPTry> otpTryRepo,
             IConfiguration configuration, IUnitOfWork unitOfWork, IEmailService emailService)
@@ -48,7 +53,7 @@ namespace Identity.Application.Repos
             }
             return sb.ToString();
         }
-        private  bool IsValidEmail(string email)
+        private bool IsValidEmail(string email)
         {
             if (string.IsNullOrWhiteSpace(email))
                 return false;
@@ -63,6 +68,29 @@ namespace Identity.Application.Repos
                 return false;
             }
         }
+        public string NormalizeEmail(string email)
+        {
+            var parts = email.Split('@');
+            if (parts.Length != 2)
+                return email;
+
+            var local = parts[0];
+            var domain = parts[1].ToLower();
+
+            if (domain == "gmail.com" || domain == "googlemail.com")
+            {
+                // Remove everything after +
+                var plusIndex = local.IndexOf('+');
+                if (plusIndex >= 0)
+                    local = local.Substring(0, plusIndex);
+
+                // Remove dots (Gmail ignores dots in username)
+                local = local.Replace(".", "");
+            }
+
+            return $"{local}@{domain}";
+        }
+
 
         public async Task<Response<string>> GenerateOtp(string email)
         {
@@ -74,6 +102,7 @@ namespace Identity.Application.Repos
                 {
                     return Response<string>.Failure(new Error("Invalid email format."));
                 }
+                email = NormalizeEmail(email);
                 var verification = await _emailVerificationRepo.Dbset()
                     .Include(e => e.OTPCodes)
                     .FirstOrDefaultAsync(e => e.Email == email);
@@ -99,15 +128,15 @@ namespace Identity.Application.Repos
                 {
                     EmailVerificationId = verification.Id,
                     Code = code,
-                    IsUsed=false,
-                    CreatedAtUTC=now,
+                    IsUsed = false,
+                    CreatedAtUTC = now,
                     IsExpired = false,
-                    ExpireAt = now.AddMinutes((double.TryParse(_configuration["OTP:ExpireInMin"], out double mins) ? mins : 15)),
+                    ExpireAt = now.AddMinutes(double.TryParse(_configuration["OTP:ExpireInMin"], out double mins) ? mins : 15),
                 };
 
-                  _otpCodeRepo.Dbset().Add(otp);
+                _otpCodeRepo.Dbset().Add(otp);
                 await _otpCodeRepo.SaveChangesAsync();
-                var messege=await _emailService.GetEmailStructure(EmailStructure.OTP_English, email);
+                var messege = await _emailService.GetEmailStructure(EmailStructure.OTP_English, email);
                 var placeholders = new Dictionary<string, string>
                 {
                     { "otpValue", code },
@@ -165,9 +194,90 @@ namespace Identity.Application.Repos
                 var otp = await _otpCodeRepo.Dbset()
                     .Include(x => x.EmailVerification)
                     .Include(x => x.OTPTries)
+                    .Where(x => x.EmailVerification.Email == dto.Email 
+                                 &&(!x.IsUsed || !x.IsExpired) )
+                    .OrderByDescending(x => x.CreatedAtUTC)
+                    .FirstOrDefaultAsync();
+
+                if (otp == null)
+                {
+                    return Response<bool>.Failure(new Error("OTP not found "));
+                }
+                // Check expiry
+                if (otp.ExpireAt < DateTime.UtcNow)
+                {
+                    otp.IsExpired = true;
+                    _otpCodeRepo.Dbset().Update(otp);
+                    await _unitOfWork.CommitTransactionAsync();
+                    return Response<bool>.Failure(new Error("OTP expired."));
+                }
+
+                // Check tries
+
+                int maxTries = int.Parse(_configuration["OTP:MaxTries"]);
+                if (otp.OTPTries.Count >= maxTries)
+                {
+                    otp.IsExpired = true;
+                    _otpCodeRepo.Dbset().Update(otp);
+                    await _unitOfWork.CommitTransactionAsync();
+                    return Response<bool>.Failure(new Error("Too many attempts. OTP expired."));
+                }
+
+
+
+                // If wrong OTP
+                if (otp.Code != dto.Otp)
+                {
+                    otp.OTPTries.Add(new OTPTry
+                    {
+                        TryAt = DateTime.UtcNow,
+                        IsSuccess = false
+                    });
+
+                    if (otp.OTPTries.Count >= maxTries)
+                        otp.IsExpired = true;
+
+                    _otpCodeRepo.Dbset().Update(otp);
+                    await _unitOfWork.CommitTransactionAsync();
+                    return Response<bool>.Failure(new Error("Invalid OTP."));
+                }
+
+                // Success
+                otp.OTPTries.Add(new OTPTry
+                {
+                    TryAt = DateTime.UtcNow,
+                    IsSuccess = true
+                });
+                otp.IsVerified = true;
+                otp.IsUsed = false;
+                otp.IsExpired = true;
+                otp.EmailVerification.IsVerified = true;
+
+                _otpCodeRepo.Dbset().Update(otp);
+                _emailVerificationRepo.Dbset().Update(otp.EmailVerification);
+
+                await _unitOfWork.CommitTransactionAsync();
+                return Response<bool>.SuccessResponse(true);
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return Response<bool>.Failure(new Error("An error occurred while verifying OTP: " + ex.Message));
+            }
+        }
+
+        public async Task<Response<bool>> UseOTPAsync(VerifyOtpDto dto)
+        {
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var otp = await _otpCodeRepo.Dbset()
+                    .Include(x => x.EmailVerification)
+                    .Include(x => x.OTPTries)
                     .Where(x => x.EmailVerification.Email == dto.Email &&
                                 x.Code == dto.Otp &&
-                                !x.IsExpired)
+                                !x.IsUsed && x.IsVerified)
+
                     .OrderByDescending(x => x.CreatedAtUTC)
                     .FirstOrDefaultAsync();
 
@@ -188,27 +298,7 @@ namespace Identity.Application.Repos
 
                     return Response<bool>.Failure(new Error("OTP is invalid or expired"));
                 }
-
-                // Check if reached max tries
-                int maxTries = int.Parse(_configuration["OTP:MaxTries"]);
-                if (otp.OTPTries.Count >= maxTries)
-                {
-                    otp.IsExpired = true;
-                    _otpCodeRepo.Dbset().Update(otp);
-                    await _unitOfWork.CommitTransactionAsync();
-                    return Response<bool>.Failure(new Error("Too many attempts. OTP expired."));
-                }
-
-                otp.OTPTries.Add(new OTPTry
-                {
-                    TryAt = DateTime.UtcNow,
-                    IsSuccess = true
-                });
-
-                otp.IsUsed = false;
-                otp.IsExpired = false;
-                otp.EmailVerification.IsVerified = true;
-
+                otp.IsUsed = true;
                 _otpCodeRepo.Dbset().Update(otp);
                 _emailVerificationRepo.Dbset().Update(otp.EmailVerification);
 
@@ -220,6 +310,9 @@ namespace Identity.Application.Repos
                 await _unitOfWork.RollbackTransactionAsync();
                 return Response<bool>.Failure(new Error("An error occurred while verifying OTP: " + ex.Message));
             }
+
+
         }
+
     }
 }

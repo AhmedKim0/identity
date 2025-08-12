@@ -1,6 +1,7 @@
-﻿using Identity.Application.DTO.LoginDTOs;
+﻿using Identity.API.Middleware;
+using Identity.Application.DTO.LoginDTOs;
+using Identity.Application.Imp;
 using Identity.Application.Int;
-using Identity.Application.Repos;
 using Identity.Application.Reposatory;
 using Identity.Application.UOW;
 using Identity.DAL;
@@ -13,6 +14,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+using StackExchange.Redis;
 
 using System.Security.Claims;
 using System.Text;
@@ -31,6 +34,7 @@ internal class Program
         builder.Services.AddIdentity<AppUser, AppRole>()
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
+
         #region Enities
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddScoped<IAsyncRepository<Permission>, AsyncReposatory<Permission>>();
@@ -39,6 +43,7 @@ internal class Program
         builder.Services.AddScoped<IAsyncRepository<OTPTry>, AsyncReposatory<OTPTry>>();
         builder.Services.AddScoped<IAsyncRepository<EmailVerification>, AsyncReposatory<EmailVerification>>();
         builder.Services.AddScoped<IAsyncRepository<EmailBody>, AsyncReposatory<EmailBody>>();
+        builder.Services.AddScoped<IAsyncRepository<UserToken>, AsyncReposatory<UserToken>>();
         #endregion
 
         #region Services
@@ -50,12 +55,19 @@ internal class Program
         builder.Services.AddScoped<IPolicyStore, InMemoryPolicyStore>();
         builder.Services.AddScoped<IOTPService, OTPService>();
         builder.Services.AddScoped<IEmailService, EmailService>();
+        builder.Services.AddScoped<ILoginService, LoginService>();
         #endregion
 
         var jwtSection = builder.Configuration.GetSection("JwtSettings");
         builder.Services.Configure<JwtSettings>(jwtSection);
 
         var jwtSettings = jwtSection.Get<JwtSettings>()!;
+        if (jwtSettings.SingleSignon == true)
+        {
+            IServiceCollection serviceCollection = builder.Services.AddSingleton<IConnectionMultiplexer>(
+                 ConnectionMultiplexer.Connect("localhost:6379"));
+;
+        }
         builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<IOptions<JwtSettings>>().Value);
 
@@ -71,7 +83,7 @@ internal class Program
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
-        ValidIssuer = jwtSettings.Issuer,
+        ValidIssuers = builder.Configuration.GetSection("JwtSettings:Issuers").Get<string[]>(),
 
         ValidateAudience = false,
         ValidAudience = jwtSettings.Audience,
@@ -155,6 +167,9 @@ internal class Program
         app.UseAuthorization();
         if (builder.Configuration.GetValue<bool>("UseAuthMiddleware"))
         app.UseMiddleware<DynamicAuthorizationMiddleware>();
+        if(builder.Configuration.GetValue<bool>("JwtSettings:SingleSignon"))
+            app.UseMiddleware<SingleSigninMiddleware>();
+
         app.MapControllers();
         app.Run();
     }

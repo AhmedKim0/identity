@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Identity.Domain.Entities;
 using Identity.Application.Reposatory;
 using Microsoft.EntityFrameworkCore;
+using Identity.Application.DTO;
+using Identity.Application.Int;
 
 
 namespace Identity.Infrastructure.EmailServices

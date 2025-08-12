@@ -31,7 +31,7 @@ public class TokenService: ITokenService
     public async Task<(string token, string refreshToken)> GenerateTokens(AppUser user)
     {
         var authClaims = new List<Claim>
-        {
+        {   new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.UserName!),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };

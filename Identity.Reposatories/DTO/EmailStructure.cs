@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Identity.Infrastructure.EmailServices
+namespace Identity.Application.DTO
 {
     public enum EmailStructure
     {
-        OTP_English=5,
-        OTP_Arabic=6
+        OTP_English=1,
+        OTP_Arabic=2
 
     }
 }

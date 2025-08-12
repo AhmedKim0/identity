@@ -1,8 +1,10 @@
 ﻿using Identity.Application.DTO;
 using Identity.Application.DTO.OTP;
 using Identity.Application.Int;
+using Identity.Application;
 
 using Microsoft.AspNetCore.Mvc;
+using Identity.Application.Imp;
 
 namespace Identity.API.Controllers
 {
@@ -15,6 +17,7 @@ namespace Identity.API.Controllers
         public OTPController(IOTPService otpService)
         {
             _otpService = otpService;
+
         }
 
         [HttpPost("Generate")]
@@ -67,5 +70,22 @@ namespace Identity.API.Controllers
                 return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
             }
         }
+        [HttpPost("UseOTP")]
+        public async Task<IActionResult> UseOTP([FromBody] VerifyOtpDto dto)
+        {
+            try
+            {
+                var result = await _otpService.UseOTPAsync(dto);
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
+            }
+        }
+
     }
 }

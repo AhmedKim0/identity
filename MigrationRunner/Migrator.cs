@@ -56,12 +56,32 @@ internal class Migrator
             }
 
             var permissions = new[]
-                        {
-                    "permission.getall","permission.getbyid","login.login","login.refresh-token","permission.create",
-                    "permission.update","permission.delete","permission.assign","permission.getpermissionsbyrole",
-                    "role.getall","role.getbyid","role.create", "role.delete","role.AssignRolesToUser","role.assigntouser","role.removefromuser",
-                    "user.createuser","user.updateuser","user.deleteuser"
-                };
+            {
+                    "login.login",
+                    "login.refresh-token",
+                    "otp.generate",
+                    "otp.verify",
+                    "otp.changepassword",
+                    "otp.useotp",
+                    "permission.getall",
+                    "permission.getbyid",
+                    "permission.create",
+                    "permission.update",
+                    "permission.delete",
+                    "permission.assign",
+                    "permission.getpermissionsbyrole",
+                    "role.getall",
+                    "role.getbyid",
+                    "role.assignrolestouser",
+                    "role.create",
+                    "role.delete",
+                    "role.assigntouser",
+                    "role.removefromuser",
+                    "user.createuser",
+                    "user.updateuser",
+                    "user.deleteuser"
+
+            };
 
             var existing = db.Permissions.Select(p => p.Name).ToList();
             var toAdd = permissions.Except(existing).Select(name => new Permission { Name = name }).ToList();
@@ -76,7 +96,7 @@ internal class Migrator
             {
                 Console.WriteLine("No new permissions to add.");
             }
-            var roles = new List<AppRole> () {new AppRole{Name="admin" }, new AppRole { Name = "norole" } };
+            var roles = new List<AppRole>() { new AppRole { Name = "admin" }, new AppRole { Name = "norole" } };
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role.Name))
@@ -85,15 +105,62 @@ internal class Migrator
                     Console.WriteLine($"Role '{role.Name}' created.");
                 }
             }
-            var newuser = new AppUser() { Email="admin@admin.com",UserName= "admin" };
+            var newuser = new AppUser() { Email = "admin@admin.com", UserName = "admin" };
             var user = await userManager.FindByEmailAsync("admin@admin.com");
-            if (user==null)
+            if (user == null)
             {
-               var createduser= await userManager.CreateAsync(newuser,"Asd1236@");
-               await  userManager.AddToRoleAsync(newuser, "admin");
+                var createduser = await userManager.CreateAsync(newuser, "Asd1236@");
+                await userManager.AddToRoleAsync(newuser, "admin");
                 Console.WriteLine("user admin created and added to admin role.");
 
             }
+            var otpEnglishBody = @"
+                                <html>
+                                    <head>
+                                        <meta charset='UTF-8'>
+                                    </head>
+                                    <body style='font-family: Arial, sans-serif; font-size: 14px; color: #333;'>
+                                        <p>Your OTP code is: <b>{{{otpValue}}}</b>.</p>
+                                        <p>It will expire in <b>{{{verificationCodeExpireAfterMins}}}</b> minutes.</p>
+                                    </body>
+                                </html>
+                                ";
+
+            var otpArabicBody = @"
+                                <html>
+                                    <head>
+                                        <meta charset='UTF-8'>
+                                    </head>
+                                    <body style='font-family: Arial, sans-serif; font-size: 14px; color: #333; direction: rtl; text-align: right;'>
+                                        <p>رمز التحقق الخاص بك هو: <b>{{{otpValue}}}</b>.</p>
+                                        <p>ستنتهي صلاحيته خلال <b>{{{verificationCodeExpireAfterMins}}}</b> دقائق.</p>
+                                    </body>
+                                </html>
+                                ";
+
+            // Create objects and add them via EF
+            var emailBodies = new List<EmailBody>
+{
+    new EmailBody
+    {
+        Name = "OTP_English",
+        Subject = "OTP",
+        Body = otpEnglishBody,
+        IsDeleted = false
+    },
+    new EmailBody
+    {
+        Name = "OTP_Arabic",
+        Subject = "رمز التحقق",
+        Body = otpArabicBody,
+        IsDeleted = false
+    }
+};
+
+            db.emailBodies.AddRange(emailBodies);
+            await db.SaveChangesAsync();
+            Console.WriteLine("Email bodies added successfully.");
+
 
 
         }

@@ -15,6 +15,8 @@ namespace Identity.Domain.Entities
         public int EmailVerificationId { get; set; }
         public string Code { get; set; }
         public bool IsExpired { get; set; }
+        public bool IsVerified { get; set; }
+
         public bool IsUsed { get; set; }
         public DateTime CreatedAtUTC { get; set; }
 

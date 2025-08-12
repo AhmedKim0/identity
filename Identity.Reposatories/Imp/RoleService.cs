@@ -1,5 +1,4 @@
-﻿
-using Identity.Application.DTO;
+﻿using Identity.Application.DTO;
 using Identity.Application.DTO.RoleDTOs;
 using Identity.Application.Int;
 using Identity.Application.UOW;
@@ -9,7 +8,7 @@ using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace Identity.Application.Repos
+namespace Identity.Application.Imp
 {
     public class RoleService : IRoleService
     {

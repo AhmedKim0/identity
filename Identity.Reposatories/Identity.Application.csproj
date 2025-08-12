@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Identity.DAL\Identity.DAL.csproj" />
     <ProjectReference Include="..\Identity.Domain\Identity.Domain.csproj" />
+	  <InternalsVisibleTo Include="..\identity\Identity.API.csproj"/>
   </ItemGroup>
 
 </Project>

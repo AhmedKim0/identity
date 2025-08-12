@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 using System.Text;
 
-namespace Identity.Application.Repos
+namespace Identity.Application.Imp
 {
     public class UsersServices : IUserServices
     {

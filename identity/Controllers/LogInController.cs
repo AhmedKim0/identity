@@ -1,6 +1,8 @@
 ﻿using Identity.Application.DTO;
 using Identity.Application.DTO.LoginDTOs;
+using Identity.Application.Imp;
 using Identity.Application.Int;
+using Identity.Application.Reposatory;
 using Identity.Domain.Entities;
 
 using Microsoft.AspNetCore.Identity;
@@ -17,74 +19,83 @@ namespace Identity.API.Controllers
     [ApiController]
     public class LogInController : ControllerBase
     {
-        private readonly UserManager<AppUser> _userManager;
-        private readonly ITokenService _tokenService;
-        private readonly JwtSettings _jwtSettings;
+        private readonly ILoginService _loginService;
 
-        public LogInController(UserManager<AppUser> userManager, ITokenService tokenService, JwtSettings jwtSettings)
+        public LogInController(ILoginService loginService)
         {
-            _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
-            _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
-            _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
+            _loginService = loginService ?? throw new ArgumentNullException(nameof(loginService));
+        }
+        [HttpPost("IsLoggedin")]
+
+        public async Task<IActionResult> IsLoggedin([FromBody] LoginDTO model)
+        {
+            try
+            {
+                var result = await _loginService.IsLoggedinAsync(model);
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<string>.Failure(new Error(ex.Message)));
+            }
+
         }
         [HttpPost("Login")]
 
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {
-            var user = await _userManager.FindByEmailAsync(model.Username);
-            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
-                return Unauthorized(Response<TokenDTO>.Failure( new Error("Invalid username or password")));
-
-            var (accessToken, refreshToken) = await _tokenService.GenerateTokens(user);
-
-            return Ok(Response<TokenDTO>.SuccessResponse( new TokenDTO
+            try
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                ExpireAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes)
-            }));
+                var result = await _loginService.LoginAsync(model);
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<string>.Failure(new Error(ex.Message)));
+            }
+
         }
+
+
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDTO model)
         {
-            var principal = GetPrincipalFromExpiredToken(model.AccessToken);
-            var username = principal?.Identity?.Name;
-
-            var user = await _userManager.FindByNameAsync(username!);
-            if (user == null || user.RefreshToken != model.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
-                return Unauthorized(Response<LoginDTO>.Failure(new Error("Invalid refresh token")));
-
-            var (newAccessToken, newRefreshToken) = await _tokenService.GenerateTokens(user);
-
-            return Ok(Response<TokenDTO>.SuccessResponse(new TokenDTO
-            {
-                AccessToken = newAccessToken,
-                RefreshToken = newRefreshToken,
-                ExpireAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes)
-            }));
-        }
-
-        private ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
-        {
-            var tokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateAudience = false,
-                ValidateIssuer = true,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret)),
-                ValidateLifetime = false // Accept expired token
-            };
-
-            var tokenHandler = new JwtSecurityTokenHandler();
             try
             {
-                return tokenHandler.ValidateToken(token, tokenValidationParameters, out _);
+                var result = await _loginService.RefreshTokenAsync(model);
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
             }
-            catch
+            catch (Exception ex)
             {
-                return null;
+                return StatusCode(500, Response<string>.Failure(new Error(ex.Message)));
             }
         }
+        [HttpPost("Logout")]
+        public async Task<IActionResult> Logout([FromBody] string accessToken)
+        {
+            try
+            {
+                var result = await _loginService.LogoutAsync(accessToken);
+                if (!result.Success)
+                    return BadRequest(result);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<string>.Failure(new Error(ex.Message)));
+            }
 
+
+
+        }
     }
 }

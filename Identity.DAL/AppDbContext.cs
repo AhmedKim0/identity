@@ -23,6 +23,7 @@ namespace Identity.DAL
             _httpContextAccessor = httpContextAccessor;
         }
         public DbSet<AppUser> Users { get; set; }
+        public DbSet<UserToken> UserTokens { get; set; }
         public DbSet<Permission> Permissions { get; set; }
         public DbSet<RolePermission> RolePermissions { get; set; }
 
@@ -30,10 +31,10 @@ namespace Identity.DAL
         public DbSet<OTPTry> oTPTries { get; set; }
         public DbSet<EmailBody> emailBodies { get; set; }
 
-        private Guid? GetCurrentUserId()
+        private int? GetCurrentUserId()
         {
             var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return string.IsNullOrEmpty(userId) ? null : Guid.Parse(userId);
+            return string.IsNullOrEmpty(userId) ? null : int.Parse(userId);
         }
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

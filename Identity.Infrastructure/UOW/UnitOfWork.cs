@@ -1,6 +1,9 @@
 ﻿using Identity.DAL;
 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+
+using System.Data;
 
 namespace Identity.Application.UOW
 {
@@ -23,6 +26,7 @@ namespace Identity.Application.UOW
 
             _transaction = await _dbContext.Database.BeginTransactionAsync();
         }
+
 
         public async Task CommitTransactionAsync()
         {
@@ -62,6 +66,16 @@ namespace Identity.Application.UOW
                 await _transaction.DisposeAsync();
                 _transaction = null;
             }
+        }
+
+        public async Task BeginTransactionAsync(IsolationLevel isolationLevel)
+        {
+            if (_transaction != null)
+            {
+                await _transaction.DisposeAsync();
+            }
+
+            _transaction = await _dbContext.Database.BeginTransactionAsync( );
         }
     }
 }
