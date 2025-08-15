@@ -30,14 +30,15 @@ namespace Identity.Application.Imp
         private readonly JwtSettings _jwtSettings;
         private readonly IAsyncRepository<UserToken> _userTokenRepo;
         private readonly IUnitOfWork _unitOfWork;
-
-        public LoginService(UserManager<AppUser> userManager, ITokenService tokenService, JwtSettings jwtSettings, IAsyncRepository<UserToken> userTokenRepo, IUnitOfWork unitOfWork)
+        private readonly IRedisCacheService? _redisCacheService;
+        public LoginService(UserManager<AppUser> userManager, ITokenService tokenService, JwtSettings jwtSettings, IAsyncRepository<UserToken> userTokenRepo, IUnitOfWork unitOfWork, IRedisCacheService? redisCacheService)
         {
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
             _userTokenRepo = userTokenRepo ?? throw new ArgumentNullException(nameof(userTokenRepo));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _redisCacheService = redisCacheService;
         }
 
         public async Task<Response<bool>> IsLoggedinAsync (LoginDTO model)
@@ -56,7 +57,7 @@ namespace Identity.Application.Imp
 
         public async Task<Response<TokenDTO>> LoginAsync(LoginDTO model)
         {
-            await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            //await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
             {
                 var user = await _userManager.FindByEmailAsync(model.Username);
@@ -67,12 +68,13 @@ namespace Identity.Application.Imp
 
                 if (_jwtSettings.SingleSignon)
                 {
-                    var userToken = await _userTokenRepo.Dbset()
-                        .Where(ut => ut.UserId == user.Id).ToListAsync();
-
-                    if (userToken != null)
-                        _userTokenRepo.Dbset().RemoveRange(userToken);
-
+                    _redisCacheService.GetAsync<UserToken>($"UserToken:{user.Id}").ContinueWith(async t =>
+                    {
+                        if (t.Result != null)
+                        {
+                           await  _redisCacheService.RemoveAsync($"UserToken:{user.Id}");
+                        }
+                    });
                     var newUserToken = new UserToken
                     {
                         UserId = user.Id,
@@ -81,11 +83,27 @@ namespace Identity.Application.Imp
                         RefreshToken = refreshToken,
                         RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
                     };
+                    await _redisCacheService.SetAsync($"UserToken:{user.Id}", newUserToken, TimeSpan.FromDays(_jwtSettings.AccessTokenExpirationMinutes));
+                    // Database not good implemnetation (bad performance)
+                    //var userToken = await _userTokenRepo.Dbset()
+                    //    .Where(ut => ut.UserId == user.Id).ToListAsync();
 
-                    await _userTokenRepo.Dbset().AddAsync(newUserToken);
+                    //if (userToken != null)
+                    //    _userTokenRepo.Dbset().RemoveRange(userToken);
+
+                    //var newUserToken = new UserToken
+                    //{
+                    //    UserId = user.Id,
+                    //    AccessToken = accessToken,
+                    //    ATExpiryDate = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+                    //    RefreshToken = refreshToken,
+                    //    RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
+                    //};
+
+                    //await _userTokenRepo.Dbset().AddAsync(newUserToken);
                 }
 
-                await _unitOfWork.CommitTransactionAsync();
+                //await _unitOfWork.CommitTransactionAsync();
 
                 return Response<TokenDTO>.SuccessResponse(new TokenDTO
                 {
@@ -115,12 +133,13 @@ namespace Identity.Application.Imp
                 var (newAccessToken, newRefreshToken) = await _tokenService.GenerateTokens(user);
                 if (_jwtSettings.SingleSignon)
                 {
-                    var userToken = await _userTokenRepo.Dbset()
-                        .Where(ut => ut.UserId == user.Id).ToListAsync();
-
-                    if (userToken != null)
-                        _userTokenRepo.Dbset().RemoveRange(userToken);
-
+                    _redisCacheService.GetAsync<UserToken>($"UserToken:{user.Id}").ContinueWith(async t =>
+                    {
+                        if (t.Result != null)
+                        {
+                            await _redisCacheService.RemoveAsync($"UserToken:{user.Id}");
+                        }
+                    });
                     var newUserToken = new UserToken
                     {
                         UserId = user.Id,
@@ -129,8 +148,24 @@ namespace Identity.Application.Imp
                         RefreshToken = newRefreshToken,
                         RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
                     };
+                    await _redisCacheService.SetAsync($"UserToken:{user.Id}", newUserToken, TimeSpan.FromDays(_jwtSettings.AccessTokenExpirationMinutes));
+                    // Database not good implemnetation (bad performance)
+                    //var userToken = await _userTokenRepo.Dbset()
+                    //    .Where(ut => ut.UserId == user.Id).ToListAsync();
 
-                    await _userTokenRepo.Dbset().AddAsync(newUserToken);
+                    //if (userToken != null)
+                    //    _userTokenRepo.Dbset().RemoveRange(userToken);
+
+                    //var newUserToken = new UserToken
+                    //{
+                    //    UserId = user.Id,
+                    //    AccessToken = accessToken,
+                    //    ATExpiryDate = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+                    //    RefreshToken = refreshToken,
+                    //    RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
+                    //};
+
+                    //await _userTokenRepo.Dbset().AddAsync(newUserToken);
                 }
 
                 return Response<TokenDTO>.SuccessResponse(new TokenDTO

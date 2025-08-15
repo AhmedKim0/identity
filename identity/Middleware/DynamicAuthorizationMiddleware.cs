@@ -30,19 +30,19 @@ namespace Identity.API.Middleware
                 return;
             }
 
-            var policyStore = context.RequestServices.GetRequiredService<IPolicyStore>();
-
+            var permissions = context.User.Claims
+                .Where(c => c.Type == "Permission")
+                .Select(c => c.Value.ToLower())
+                .ToList();
             var requiredPermission = GetRequiredPermission(context);
 
-            foreach (var role in roles)
-            {
-                var permissions = await policyStore.GetPermissionsForRoleAsync(role);
+
                 if (permissions.Contains(requiredPermission))
                 {
                     await _next(context);
                     return;
                 }
-            }
+            
 
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsync("Forbidden");

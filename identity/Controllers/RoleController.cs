@@ -44,7 +44,7 @@ namespace Identity.API.Controllers
             }
         }
         [Authorize]
-        [HttpGet("AssignRolesToUser")]
+        [HttpPost("AssignRolesToUser")]
         public async Task<IActionResult> AssignRolesToUser([FromBody] AssignRolesToUserDTO dTO)
         {
             try

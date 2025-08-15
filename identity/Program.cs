@@ -7,6 +7,7 @@ using Identity.Application.UOW;
 using Identity.DAL;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.EmailServices;
+using Identity.Infrastructure.Redis;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -52,7 +53,7 @@ internal class Program
         builder.Services.AddScoped<ITokenService,TokenService>();
         builder.Services.AddScoped<IPermissionService, PermissionService>();
         builder.Services.AddMemoryCache();
-        builder.Services.AddScoped<IPolicyStore, InMemoryPolicyStore>();
+        //builder.Services.AddScoped<IPolicyStore, InMemoryPolicyStore>();
         builder.Services.AddScoped<IOTPService, OTPService>();
         builder.Services.AddScoped<IEmailService, EmailService>();
         builder.Services.AddScoped<ILoginService, LoginService>();
@@ -62,12 +63,40 @@ internal class Program
         builder.Services.Configure<JwtSettings>(jwtSection);
 
         var jwtSettings = jwtSection.Get<JwtSettings>()!;
+        #region RedisCache
+
         if (jwtSettings.SingleSignon == true)
         {
-            IServiceCollection serviceCollection = builder.Services.AddSingleton<IConnectionMultiplexer>(
-                 ConnectionMultiplexer.Connect("localhost:6379"));
-;
+            var redisConnectionString = builder.Configuration.GetSection("Redis");
+            builder.Services.Configure<RedisSettings>(redisConnectionString);
+
+            var redisSettings = redisConnectionString.Get<RedisSettings>()!;
+            var redisHosts = redisSettings.Hosts.Select(h => $"{h.Host}:{h.Port}").ToArray();
+            builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+            {
+
+
+                var configOptions = ConfigurationOptions.Parse(string.Join(",", redisHosts));
+                configOptions.Password = redisSettings.Password;
+                configOptions.Ssl = redisSettings.Ssl;
+                configOptions.AbortOnConnectFail = false;
+                configOptions.ConnectRetry = redisSettings.ConnectRetry;
+                configOptions.ConnectTimeout = redisSettings.ConnectTimeout;
+                configOptions.DefaultDatabase = redisSettings.Database;
+                configOptions.AllowAdmin = redisSettings.AllowAdmin;
+                configOptions.ResolveDns = redisSettings.ResolveDns;
+
+                return ConnectionMultiplexer.Connect(configOptions);
+            });
+
+            builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
+
         }
+        else
+        {
+            builder.Services.AddSingleton<IRedisCacheService>(_ => null!);
+        }
+        #endregion
         builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<IOptions<JwtSettings>>().Value);
 

@@ -116,12 +116,12 @@ namespace Identity.Application.Imp
                 });
 
                 _rolePermissionRepo.Dbset().AddRange(newAssignments);
-                var data = await _permissionRepo.Dbset()
-                    .Where(p => permissionIds.Contains(p.Id)).Select(p=>p.Name).ToListAsync();
+                //var data = await _permissionRepo.Dbset()
+                //    .Where(p => permissionIds.Contains(p.Id)).Select(p=>p.Name).ToListAsync();
 
-                _cache.Remove($"{role.Name}");
-                _cache.CreateEntry($"{role.Name}").AbsoluteExpirationRelativeToNow = _cacheDuration;
-                _cache.Set($"{role}", data);
+                //_cache.Remove($"{role.Name}");
+                //_cache.CreateEntry($"{role.Name}").AbsoluteExpirationRelativeToNow = _cacheDuration;
+                //_cache.Set($"{role}", data);
 
                await _unitOfWork.CommitTransactionAsync();
                 return Response<bool>.SuccessResponse(true);
