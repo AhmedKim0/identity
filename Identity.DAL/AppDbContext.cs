@@ -30,6 +30,8 @@ namespace Identity.DAL
         public DbSet<OTPCode> oTPCodes { get; set; }
         public DbSet<OTPTry> oTPTries { get; set; }
         public DbSet<EmailBody> emailBodies { get; set; }
+        public DbSet<IdentityUserRole<int>> UserRoles { get; set; }
+
 
         private int? GetCurrentUserId()
         {

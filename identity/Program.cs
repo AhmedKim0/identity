@@ -2,12 +2,15 @@
 using Identity.Application.DTO.LoginDTOs;
 using Identity.Application.Imp;
 using Identity.Application.Int;
-using Identity.Application.Reposatory;
 using Identity.Application.UOW;
 using Identity.DAL;
 using Identity.Domain.Entities;
+using Identity.Domain.IReposatory;
 using Identity.Infrastructure.EmailServices;
 using Identity.Infrastructure.Redis;
+using Identity.Infrastructure.Reposatory;
+using Identity.Infrastructure.Reposatory.Identity.Infrastructure.Reposatory;
+using Identity.Infrastructure.UOW;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -35,16 +38,32 @@ internal class Program
         builder.Services.AddIdentity<AppUser, AppRole>()
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
+        #region GoogleServices
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = "Cookies";
+            options.DefaultSignInScheme = "Cookies";
+            options.DefaultChallengeScheme = "Google";
+        })
+            .AddCookie("Cookies")
+            .AddGoogle("Google", options =>
+            {
+                options.ClientId = builder.Configuration["Google:ClientId"];
+                options.ClientSecret = builder.Configuration["Google:ClientSecret"];
+                options.CallbackPath = builder.Configuration["Google:CallbackPath"]; // Google will redirect here after login
+            });
+        #endregion
 
         #region Enities
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-        builder.Services.AddScoped<IAsyncRepository<Permission>, AsyncReposatory<Permission>>();
-        builder.Services.AddScoped<IAsyncRepository<RolePermission>, AsyncReposatory<RolePermission>>();
-        builder.Services.AddScoped<IAsyncRepository<OTPCode>, AsyncReposatory<OTPCode>>();
-        builder.Services.AddScoped<IAsyncRepository<OTPTry>, AsyncReposatory<OTPTry>>();
-        builder.Services.AddScoped<IAsyncRepository<EmailVerification>, AsyncReposatory<EmailVerification>>();
-        builder.Services.AddScoped<IAsyncRepository<EmailBody>, AsyncReposatory<EmailBody>>();
-        builder.Services.AddScoped<IAsyncRepository<UserToken>, AsyncReposatory<UserToken>>();
+        builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+        builder.Services.AddScoped<IRolePermissionRepository, RolePermissionRepository>();
+        builder.Services.AddScoped<IOTPCodeRepository, OTPCodeRepository>();
+        builder.Services.AddScoped<IOTPTryRepository, OTPTryRepository>();
+        builder.Services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();
+        builder.Services.AddScoped<IEmailBodyRepository, EmailBodyRepository>();
+        builder.Services.AddScoped<IUserTokenRepository, UserTokenRepository>();
+
         #endregion
 
         #region Services
@@ -53,10 +72,12 @@ internal class Program
         builder.Services.AddScoped<ITokenService,TokenService>();
         builder.Services.AddScoped<IPermissionService, PermissionService>();
         builder.Services.AddMemoryCache();
-        //builder.Services.AddScoped<IPolicyStore, InMemoryPolicyStore>();
         builder.Services.AddScoped<IOTPService, OTPService>();
         builder.Services.AddScoped<IEmailService, EmailService>();
         builder.Services.AddScoped<ILoginService, LoginService>();
+        builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+        builder.Services.AddHttpClient();
+
         #endregion
 
         var jwtSection = builder.Configuration.GetSection("JwtSettings");
@@ -65,7 +86,7 @@ internal class Program
         var jwtSettings = jwtSection.Get<JwtSettings>()!;
         #region RedisCache
 
-        if (jwtSettings.SingleSignon == true)
+        if (jwtSettings.SingleSession == true)
         {
             var redisConnectionString = builder.Configuration.GetSection("Redis");
             builder.Services.Configure<RedisSettings>(redisConnectionString);
@@ -197,7 +218,7 @@ internal class Program
         if (builder.Configuration.GetValue<bool>("UseAuthMiddleware"))
         app.UseMiddleware<DynamicAuthorizationMiddleware>();
         if(builder.Configuration.GetValue<bool>("JwtSettings:SingleSignon"))
-            app.UseMiddleware<SingleSigninMiddleware>();
+            app.UseMiddleware<SingleSessionMiddleware>();
 
         app.MapControllers();
         app.Run();

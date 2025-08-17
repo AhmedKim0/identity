@@ -1,11 +1,12 @@
-﻿using System.Net.Mail;
-using System.Net;
-using Microsoft.Extensions.Configuration;
-using Identity.Domain.Entities;
-using Identity.Application.Reposatory;
-using Microsoft.EntityFrameworkCore;
-using Identity.Application.DTO;
+﻿using Identity.Application.DTO;
 using Identity.Application.Int;
+using Identity.Application.UOW;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+
+using System.Net;
+using System.Net.Mail;
 
 
 namespace Identity.Infrastructure.EmailServices
@@ -13,12 +14,12 @@ namespace Identity.Infrastructure.EmailServices
     public class EmailService : IEmailService
     {
         private readonly IConfiguration _configuration;
-        private readonly IAsyncRepository<EmailBody> _EmailBody;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public EmailService(IConfiguration configuration, IAsyncRepository<EmailBody> emailBody)
+        public EmailService(IConfiguration configuration, IUnitOfWork unitOfWork)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-            _EmailBody = emailBody ?? throw new ArgumentNullException(nameof(emailBody));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         }
 
 
@@ -26,7 +27,7 @@ namespace Identity.Infrastructure.EmailServices
 
         public async Task<EmailMessage> GetEmailStructure(EmailStructure emailStructure, string emailAddress)
         {
-            var emailConfig = await _EmailBody.Dbset().FirstOrDefaultAsync(x => x.Id == (int)emailStructure);
+            var emailConfig = await _unitOfWork.EmailBodies.Dbset().FirstOrDefaultAsync(x => x.Id == (int)emailStructure);
             EmailMessage email = new EmailMessage()
             {
                 ToAddress = emailAddress,

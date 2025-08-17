@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 using System.Linq.Expressions;
 
-namespace Identity.Application.Reposatory
+namespace Identity.Domain.IReposatory
 {
     public interface IAsyncRepository<TEntity> where TEntity : BaseEntity
     {

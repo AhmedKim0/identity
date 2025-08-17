@@ -22,7 +22,7 @@ namespace Identity.API.Controllers
         {
             try
             {
-                var result = await _userServices.CreateUserAsync(createUserDTO.email, createUserDTO.password, createUserDTO.fullName);
+                var result = await _userServices.CreateTest(createUserDTO.email, createUserDTO.password, createUserDTO.fullName);
                 if (!result.Success)
                 {
                     return BadRequest(result);

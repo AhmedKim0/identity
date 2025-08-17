@@ -1,6 +1,4 @@
-﻿using Identity.Domain.SharedEntities;
-
-namespace Identity.Domain.Entities
+﻿namespace Identity.Domain.SharedEntities
 {
     public abstract class AuditableEntity : BaseEntity
     {

@@ -10,6 +10,6 @@ namespace Identity.Application.Int
 {
     public interface ITokenService
     {
-        Task<(string token, string refreshToken)> GenerateTokens(AppUser user);
+        Task<(string accessToken, string refreshToken)> GenerateTokens(AppUser user);
     }
 }

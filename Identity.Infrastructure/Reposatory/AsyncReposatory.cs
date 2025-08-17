@@ -1,5 +1,6 @@
 ﻿using Identity.DAL;
 using Identity.Domain.Entities;
+using Identity.Domain.IReposatory;
 using Identity.Domain.SharedEntities;
 
 using Microsoft.AspNetCore.Http;
@@ -13,7 +14,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Identity.Application.Reposatory
+namespace Identity.Infrastructure.Reposatory
 {
     public class AsyncReposatory<TEntity> : IAsyncRepository<TEntity> where TEntity : BaseEntity
     {

@@ -1,10 +1,8 @@
 ﻿using Identity.Application.DTO.LoginDTOs;
 using Identity.Application.Int;
-using Identity.Application.Reposatory;
-using Identity.DAL;
+using Identity.Application.UOW;
 using Identity.Domain.Entities;
 
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -15,17 +13,15 @@ using System.Text;
 public class TokenService: ITokenService
 {
     private readonly JwtSettings _jwtSettings;
-    private readonly UserManager<AppUser> _userManager;
-    private readonly RoleManager<AppRole> _roleManager;
-    private readonly IAsyncRepository<RolePermission> _rolePermissionRepo;
 
-    public TokenService(JwtSettings jwtSettings, UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, 
-        IAsyncRepository<RolePermission> rolePermissionRepo)
+    private readonly IUnitOfWork _unitOfWork;
+    //private readonly IAsyncRepository<RolePermission> _rolePermissionRepo;
+
+    public TokenService(JwtSettings jwtSettings, 
+        IUnitOfWork unitOfWork)
     {
         _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
-        _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
-        _roleManager = roleManager ?? throw new ArgumentNullException(nameof(roleManager));
-        _rolePermissionRepo = rolePermissionRepo ?? throw new ArgumentNullException(nameof(rolePermissionRepo));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
     }
 
     public async Task<(string token, string refreshToken)> GenerateTokens(AppUser user)
@@ -36,18 +32,18 @@ public class TokenService: ITokenService
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        var roles = await _userManager.GetRolesAsync(user);
+        var roles = await _unitOfWork._UserManager.GetRolesAsync(user);
         var roleclaim = roles.Select(r=>new Claim(ClaimTypes.Role,r));
         authClaims.AddRange(roleclaim);
         var permissionNames = new List<string>();
 
         foreach (var roleName in roles)
         {
-            var role = await _roleManager.FindByNameAsync(roleName);
+            var role = await _unitOfWork._RoleManager.FindByNameAsync(roleName);
             if(role==null)
                 throw new NullReferenceException();
 
-            var permissions = await _rolePermissionRepo.Dbset()
+            var permissions = await _unitOfWork.RolePermissions.Dbset()
                 .Where(rp => rp.RoleId == role.Id && rp.Permission != null)
                 .Include(rp => rp.Permission)
                 .Select(rp => rp.Permission.Name)
@@ -77,7 +73,7 @@ public class TokenService: ITokenService
 
         user.RefreshToken = refreshToken;
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays);
-        await _userManager.UpdateAsync(user);
+        await _unitOfWork._UserManager.UpdateAsync(user);
 
         return (accessToken, refreshToken);
     }

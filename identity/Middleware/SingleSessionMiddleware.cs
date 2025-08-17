@@ -1,22 +1,20 @@
 ﻿using global::Identity.Application.DTO.LoginDTOs;
-using global::Identity.Application.Reposatory;
 using global::Identity.Domain.Entities;
 
 using Identity.Application.Int;
 
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 
 using System.Security.Claims;
 namespace Identity.API.Middleware
 {
 
 
-    public class SingleSigninMiddleware
+    public class SingleSessionMiddleware
     {
         private readonly RequestDelegate _next;
 
-        public SingleSigninMiddleware(RequestDelegate next)
+        public SingleSessionMiddleware(RequestDelegate next)
         {
             _next = next;
         }
@@ -25,11 +23,10 @@ namespace Identity.API.Middleware
         {
             var jwtsettings = context.RequestServices.GetRequiredService<JwtSettings>();
 
-            if (jwtsettings.SingleSignon)
+            if (jwtsettings.SingleSession)
             {
                 var isAuthorized = context.GetEndpoint()?.Metadata?.GetMetadata<AuthorizeAttribute>() != null;
 
-                //var userTokenRepo = context.RequestServices.GetRequiredService<IAsyncRepository<UserToken>>();
                 var redisCacheService = context.RequestServices.GetRequiredService<IRedisCacheService?>();
                 var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (isAuthorized)
@@ -42,7 +39,6 @@ namespace Identity.API.Middleware
                     }
                     var userToken=await redisCacheService.GetAsync<UserToken>($"UserToken:{userId}");
 
-                    //var userToken = await userTokenRepo.Dbset().FirstOrDefaultAsync(ut => ut.UserId == int.Parse(userId));
                     if (userToken == null) {
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                         await context.Response.WriteAsync("Unauthorized");
@@ -51,8 +47,7 @@ namespace Identity.API.Middleware
                     if(userToken.ATExpiryDate<=DateTime.UtcNow)
                     {
                         await redisCacheService.RemoveAsync($"UserToken:{userId}");
-                        //userTokenRepo.Dbset().Remove(userToken);
-                        //await userTokenRepo.SaveChangesAsync();
+
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                         await context.Response.WriteAsync("Unauthorized");
                         return;

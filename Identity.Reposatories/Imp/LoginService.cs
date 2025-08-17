@@ -1,53 +1,42 @@
-﻿
-using Azure.Core;
-
-using Identity.Application.DTO;
+﻿using Identity.Application.DTO;
 using Identity.Application.DTO.LoginDTOs;
 using Identity.Application.Int;
-using Identity.Application.Reposatory;
 using Identity.Application.UOW;
 using Identity.Domain.Entities;
+using Identity.Domain.IReposatory;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Identity.Application.Imp
 {
 
     public class LoginService : ILoginService
     {
-        private readonly UserManager<AppUser> _userManager;
         private readonly ITokenService _tokenService;
         private readonly JwtSettings _jwtSettings;
-        private readonly IAsyncRepository<UserToken> _userTokenRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRedisCacheService? _redisCacheService;
-        public LoginService(UserManager<AppUser> userManager, ITokenService tokenService, JwtSettings jwtSettings, IAsyncRepository<UserToken> userTokenRepo, IUnitOfWork unitOfWork, IRedisCacheService? redisCacheService)
+        public LoginService( ITokenService tokenService, JwtSettings jwtSettings, IUnitOfWork unitOfWork, IRedisCacheService? redisCacheService)
         {
-            _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
-            _userTokenRepo = userTokenRepo ?? throw new ArgumentNullException(nameof(userTokenRepo));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _redisCacheService = redisCacheService;
         }
 
         public async Task<Response<bool>> IsLoggedinAsync (LoginDTO model)
         {
-            var user = await _userManager.FindByEmailAsync(model.Username);
-            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
+            var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
+            if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                 return Response<bool>.Failure(new Error("Invalid username or password"));
-            var userToken = await _userTokenRepo.Dbset()
-                        .FirstOrDefaultAsync(ut => ut.UserId == user.Id);
+            //var userToken = await _unitOfWork.UserTokens.Dbset()
+            //            .FirstOrDefaultAsync(ut => ut.UserId == user.Id);
+            var userToken = await _redisCacheService?.GetAsync<UserToken>($"UserToken:{user.Id}");
             if (userToken == null) 
               return  Response<bool>.SuccessResponse(false);
             return Response<bool>.SuccessResponse(true);
@@ -60,13 +49,13 @@ namespace Identity.Application.Imp
             //await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
             {
-                var user = await _userManager.FindByEmailAsync(model.Username);
-                if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
+                var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
+                if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<TokenDTO>.Failure(new Error("Invalid username or password"));
 
                 var (accessToken, refreshToken) = await _tokenService.GenerateTokens(user);
 
-                if (_jwtSettings.SingleSignon)
+                if (_jwtSettings.SingleSession)
                 {
                     _redisCacheService.GetAsync<UserToken>($"UserToken:{user.Id}").ContinueWith(async t =>
                     {
@@ -84,26 +73,9 @@ namespace Identity.Application.Imp
                         RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
                     };
                     await _redisCacheService.SetAsync($"UserToken:{user.Id}", newUserToken, TimeSpan.FromDays(_jwtSettings.AccessTokenExpirationMinutes));
-                    // Database not good implemnetation (bad performance)
-                    //var userToken = await _userTokenRepo.Dbset()
-                    //    .Where(ut => ut.UserId == user.Id).ToListAsync();
 
-                    //if (userToken != null)
-                    //    _userTokenRepo.Dbset().RemoveRange(userToken);
-
-                    //var newUserToken = new UserToken
-                    //{
-                    //    UserId = user.Id,
-                    //    AccessToken = accessToken,
-                    //    ATExpiryDate = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
-                    //    RefreshToken = refreshToken,
-                    //    RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
-                    //};
-
-                    //await _userTokenRepo.Dbset().AddAsync(newUserToken);
                 }
 
-                //await _unitOfWork.CommitTransactionAsync();
 
                 return Response<TokenDTO>.SuccessResponse(new TokenDTO
                 {
@@ -126,12 +98,12 @@ namespace Identity.Application.Imp
                 var principal = GetPrincipalFromExpiredToken(model.AccessToken);
                 var username = principal?.Identity?.Name;
 
-                var user = await _userManager.FindByNameAsync(username!);
+                var user = await _unitOfWork._UserManager.FindByNameAsync(username!);
                 if (user == null || user.RefreshToken != model.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
                     return Response<TokenDTO>.Failure(new Error("Invalid refresh token"));
 
                 var (newAccessToken, newRefreshToken) = await _tokenService.GenerateTokens(user);
-                if (_jwtSettings.SingleSignon)
+                if (_jwtSettings.SingleSession)
                 {
                     _redisCacheService.GetAsync<UserToken>($"UserToken:{user.Id}").ContinueWith(async t =>
                     {
@@ -149,23 +121,7 @@ namespace Identity.Application.Imp
                         RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
                     };
                     await _redisCacheService.SetAsync($"UserToken:{user.Id}", newUserToken, TimeSpan.FromDays(_jwtSettings.AccessTokenExpirationMinutes));
-                    // Database not good implemnetation (bad performance)
-                    //var userToken = await _userTokenRepo.Dbset()
-                    //    .Where(ut => ut.UserId == user.Id).ToListAsync();
-
-                    //if (userToken != null)
-                    //    _userTokenRepo.Dbset().RemoveRange(userToken);
-
-                    //var newUserToken = new UserToken
-                    //{
-                    //    UserId = user.Id,
-                    //    AccessToken = accessToken,
-                    //    ATExpiryDate = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
-                    //    RefreshToken = refreshToken,
-                    //    RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
-                    //};
-
-                    //await _userTokenRepo.Dbset().AddAsync(newUserToken);
+                
                 }
 
                 return Response<TokenDTO>.SuccessResponse(new TokenDTO
@@ -181,21 +137,22 @@ namespace Identity.Application.Imp
             }
         }
 
-        // use it in case SSO
+        // use it in case SingleSession
         public async Task<Response<TokenDTO>> LogoutAsync(string accessToken)
         {
             var principal = GetPrincipalFromExpiredToken(accessToken);
             if (principal == null)
                 return Response<TokenDTO>.Failure(new Error("Invalid token"));
             var username = principal.Identity?.Name;
-            var user = await _userManager.FindByNameAsync(username!);
+            var user = await _unitOfWork._UserManager.FindByNameAsync(username!);
             if (user == null)
                 return Response<TokenDTO>.Failure(new Error("User not found"));
-            var userToken = await _userTokenRepo.Dbset().FirstOrDefaultAsync(ut => ut.UserId == user.Id);
+
+            var userToken = await _redisCacheService.GetAsync<UserToken>($"UserToken:{user.Id}");
             if (userToken != null)
             {
-                _userTokenRepo.Dbset().Remove(userToken);
-                await _userTokenRepo.SaveChangesAsync();
+                await _redisCacheService.RemoveAsync($"UserToken:{user.Id}");
+
             }
             return Response<TokenDTO>.SuccessResponse(new TokenDTO
             {
