@@ -1,5 +1,6 @@
 ﻿using Identity.Application.DTO;
 using Identity.Application.DTO.GoogleDTOs;
+using Identity.Application.DTO.LoginDTOs;
 
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,6 @@ namespace Identity.Application.Int
     public interface IGoogleAuthService
     {
         string GetGoogleAuthUrl();
-        Task<Response<GoogleUserInfo?>> GetUserInfoAsync(string code);
+        Task<Response<TokenDTO?>> GetUserInfoAsync(string code);
     }
 }

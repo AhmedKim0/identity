@@ -24,7 +24,7 @@ public class TokenService: ITokenService
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
     }
 
-    public async Task<(string token, string refreshToken)> GenerateTokens(AppUser user)
+    public async Task<(string accessToken, string refreshToken)> GenerateTokens(AppUser user)
     {
         var authClaims = new List<Claim>
         {   new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
