@@ -31,15 +31,20 @@ namespace Identity.Application.Imp
 
         public async Task<Response<bool>> IsLoggedinAsync (LoginDTO model)
         {
+            try {
+                model.Username=SharedFunctions.NormalizeEmail(model.Username);
             var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
             if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                 return Response<bool>.Failure(new Error("Invalid username or password"));
-            //var userToken = await _unitOfWork.UserTokens.Dbset()
-            //            .FirstOrDefaultAsync(ut => ut.UserId == user.Id);
             var userToken = await _redisCacheService?.GetAsync<UserToken>($"UserToken:{user.Id}");
             if (userToken == null) 
               return  Response<bool>.SuccessResponse(false);
             return Response<bool>.SuccessResponse(true);
+            }
+            catch
+            {
+                return Response<bool>.Failure(new Error("An error occurred while processing your request."));
+            }
 
 
         }
@@ -49,6 +54,8 @@ namespace Identity.Application.Imp
             //await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
             {
+                model.Username = SharedFunctions.NormalizeEmail(model.Username);
+
                 var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
                 if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<TokenDTO>.Failure(new Error("Invalid username or password"));
@@ -95,6 +102,7 @@ namespace Identity.Application.Imp
         {
             try
             {
+
                 var principal = GetPrincipalFromExpiredToken(model.AccessToken);
                 var username = principal?.Identity?.Name;
 

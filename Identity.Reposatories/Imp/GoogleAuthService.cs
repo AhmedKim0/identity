@@ -2,7 +2,6 @@
 using Identity.Application.DTO;
 using Identity.Application.DTO.GoogleDTOs;
 using Identity.Application.DTO.LoginDTOs;
-using Identity.Application.DTO.UserDTOs;
 using Identity.Application.Int;
 using Identity.Application.UOW;
 using Identity.DAL;
@@ -10,7 +9,6 @@ using Identity.Domain.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 
 using System.Data;
 using System.Net.Http.Headers;
@@ -25,21 +23,16 @@ namespace Identity.Application.Imp
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IRoleService _roleService;
-        private readonly IUserServices _userServices;
         private readonly ITokenService _tokenService;
         private readonly JwtSettings _jwtSettings;
-
         private readonly AppDbContext _db;
 
         public GoogleAuthService(IConfiguration configuration, IHttpClientFactory httpClientFactory, IUnitOfWork unitOfWork
-            , IUserServices userServices, IRoleService roleService, ITokenService tokenService,JwtSettings jwtSettings)
+            , ITokenService tokenService, JwtSettings jwtSettings)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
-            _userServices = userServices?? throw new ArgumentNullException(nameof(userServices)) ;
-            _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
         }
@@ -112,20 +105,21 @@ namespace Identity.Application.Imp
                     responseContent,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
                 );
+                userData.Email = SharedFunctions.NormalizeEmail(userData.Email);
                 var userexist = await _unitOfWork._UserManager.FindByEmailAsync(userData.Email);
                 if (userexist == null)
                 { // implemnet registration
                     await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted);
 
-                    var user=await CreateGoogleUser(userData.Email, "A@s12" + Guid.NewGuid().ToString(), userData.Name);
+                    var user = await CreateGoogleUser(userData.Email, "A@s12" + Guid.NewGuid().ToString(), userData.Name);
                     if (user == null)
                     {
                         await _unitOfWork.RollbackTransactionAsync();
                         return Response<TokenDTO?>.Failure(new Error("User not created successfully"));
                     }
-                    var tokens=await _tokenService.GenerateTokens(user);
+                    var tokens = await _tokenService.GenerateTokens(user);
                     await _unitOfWork.CommitTransactionAsync();
-                    var response = new TokenDTO 
+                    var response = new TokenDTO
                     {
                         AccessToken = tokens.accessToken,
                         RefreshToken = tokens.refreshToken,
@@ -134,16 +128,16 @@ namespace Identity.Application.Imp
                     };
                     return Response<TokenDTO?>.SuccessResponse(response);
                 }
-                    // User already exists, generate tokens
-                    var token = await _tokenService.GenerateTokens(userexist);
-                    var existUserResponse = new TokenDTO
-                    {
-                        AccessToken = token.accessToken,
-                        RefreshToken = token.refreshToken,
-                        ExpireAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
-                    };
-                    return Response<TokenDTO?>.SuccessResponse(existUserResponse);
-                }
+                // User already exists, generate tokens
+                var token = await _tokenService.GenerateTokens(userexist);
+                var existUserResponse = new TokenDTO
+                {
+                    AccessToken = token.accessToken,
+                    RefreshToken = token.refreshToken,
+                    ExpireAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+                };
+                return Response<TokenDTO?>.SuccessResponse(existUserResponse);
+            }
             catch (Exception ex)
             {
                 // Log the exception
@@ -154,16 +148,12 @@ namespace Identity.Application.Imp
         }
         private async Task<AppUser?> CreateGoogleUser(string email, string password, string fullName)
         {
-            var userExists = await _unitOfWork._UserManager.FindByEmailAsync(email);
-            if (userExists != null)
-            {
-                throw new Exception("User already exists");
-            }
-            if (!IsValidEmail(email))
+
+            if (!SharedFunctions.IsValidEmail(email))
             {
                 throw new Exception("Invalid email format");
             }
-            email = NormalizeEmail(email);
+            email = SharedFunctions.NormalizeEmail(email);
 
             var user = new AppUser
             {
@@ -187,49 +177,17 @@ namespace Identity.Application.Imp
                 .Where(r => rolesIds.Contains(r.Id))
                 .Select(r => r.Name)
                 .ToListAsync();
+            if (roles == null || roles.Count == 0)
+            {
+                throw new Exception("No roles found for the user");
+            }
             var addToRolesResult = await _unitOfWork._UserManager.AddToRolesAsync(user, roles.Select(r => r.ToString()));
 
 
 
             return user;
         }
-        private bool IsValidEmail(string email)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-                return false;
 
-            try
-            {
-                var addr = new System.Net.Mail.MailAddress(email);
-                return addr.Address == email;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-        public string NormalizeEmail(string email)
-        {
-            var parts = email.Split('@');
-            if (parts.Length != 2)
-                return email;
-
-            var local = parts[0];
-            var domain = parts[1].ToLower();
-
-            if (domain == "gmail.com" || domain == "googlemail.com")
-            {
-                // Remove everything after +
-                var plusIndex = local.IndexOf('+');
-                if (plusIndex >= 0)
-                    local = local.Substring(0, plusIndex);
-
-                // Remove dots (Gmail ignores dots in username)
-                local = local.Replace(".", "");
-            }
-
-            return $"{local}@{domain}";
-        }
 
     }
 
