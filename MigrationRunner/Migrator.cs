@@ -56,13 +56,22 @@ internal class Migrator
             }
 
             var permissions = new[]
+
             {
+                    // LogIn
+                    "login.isloggedin",
                     "login.login",
+                    "login.googlelogin",
                     "login.refresh-token",
+                    "login.logout",
+
+                    // OTP
                     "otp.generate",
                     "otp.verify",
                     "otp.changepassword",
                     "otp.useotp",
+
+                    // Permission
                     "permission.getall",
                     "permission.getbyid",
                     "permission.create",
@@ -70,6 +79,8 @@ internal class Migrator
                     "permission.delete",
                     "permission.assign",
                     "permission.getpermissionsbyrole",
+
+                    // Role
                     "role.getall",
                     "role.getbyid",
                     "role.assignrolestouser",
@@ -77,11 +88,13 @@ internal class Migrator
                     "role.delete",
                     "role.assigntouser",
                     "role.removefromuser",
+
+                    // User
                     "user.createuser",
                     "user.updateuser",
                     "user.deleteuser"
+             };
 
-            };
 
             var existing = db.Permissions.Select(p => p.Name).ToList();
             var toAdd = permissions.Except(existing).Select(name => new Permission { Name = name }).ToList();
