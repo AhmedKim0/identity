@@ -5,6 +5,7 @@ using Identity.Application.UOW;
 using Identity.Domain.Entities;
 using Identity.Domain.IReposatory;
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 
@@ -21,25 +22,33 @@ namespace Identity.Application.Imp
         private readonly JwtSettings _jwtSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRedisCacheService? _redisCacheService;
-        public LoginService( ITokenService tokenService, JwtSettings jwtSettings, IUnitOfWork unitOfWork, IRedisCacheService? redisCacheService)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IEmailService _emailService;
+        private readonly IOTPService _oTPService;
+        public LoginService(ITokenService tokenService, JwtSettings jwtSettings, IUnitOfWork unitOfWork, IRedisCacheService? redisCacheService
+            , IHttpContextAccessor httpContextAccessor, IEmailService emailService, IOTPService oTPService)
         {
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _redisCacheService = redisCacheService;
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
+            _oTPService = oTPService ?? throw new ArgumentNullException(nameof(oTPService));
         }
 
-        public async Task<Response<bool>> IsLoggedinAsync (LoginDTO model)
+        public async Task<Response<bool>> IsLoggedinAsync(LoginDTO model)
         {
-            try {
-                model.Username=SharedFunctions.NormalizeEmail(model.Username);
-            var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
-            if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
-                return Response<bool>.Failure(new Error("Invalid username or password"));
-            var userToken = await _redisCacheService?.GetAsync<UserToken>($"UserToken:{user.Id}");
-            if (userToken == null) 
-              return  Response<bool>.SuccessResponse(false);
-            return Response<bool>.SuccessResponse(true);
+            try
+            {
+                model.Username = SharedFunctions.NormalizeEmail(model.Username);
+                var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
+                if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
+                    return Response<bool>.Failure(new Error("Invalid username or password"));
+                var userToken = await _redisCacheService?.GetAsync<UserToken>($"UserToken:{user.Id}");
+                if (userToken == null)
+                    return Response<bool>.SuccessResponse(false);
+                return Response<bool>.SuccessResponse(true);
             }
             catch
             {
@@ -59,7 +68,30 @@ namespace Identity.Application.Imp
                 var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
                 if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<TokenDTO>.Failure(new Error("Invalid username or password"));
+                if (!await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
+                {
+                    if (!SharedFunctions.CanSendMail(user))
+                    return Response<TokenDTO>.Failure(new Error("Please Confirm your Email Later"));
 
+                    _oTPService.GenerateEmailVerificationTokenAsync(user.Email);
+                }
+                if (user.TwoFactorEnabled)
+                {
+                    var token = await _unitOfWork._UserManager.GenerateTwoFactorTokenAsync(user, "Email");
+                    if (string.IsNullOrEmpty(token))
+                        return Response<TokenDTO>.Failure(new Error("Failed to generate two-factor token. Please try again later."));
+                    var Email= await _emailService.GetEmailStructure(EmailStructure.Token,user.Email);
+                    Dictionary<string,string> replacements = new Dictionary<string, string>
+                    {
+                        { "type", "Email for Two Factor Authentication" },
+                        { "Link", user.UserName }
+                    };
+                    _emailService.ReplacePlaceholders(Email, replacements);
+                    await _emailService.SendEmailAsync(Email);
+
+
+
+                }
                 var (accessToken, refreshToken) = await _tokenService.GenerateTokens(user);
 
                 if (_jwtSettings.SingleSession)
@@ -68,7 +100,7 @@ namespace Identity.Application.Imp
                     {
                         if (t.Result != null)
                         {
-                           await  _redisCacheService.RemoveAsync($"UserToken:{user.Id}");
+                            await _redisCacheService.RemoveAsync($"UserToken:{user.Id}");
                         }
                     });
                     var newUserToken = new UserToken
@@ -129,7 +161,7 @@ namespace Identity.Application.Imp
                         RTExpiryDate = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
                     };
                     await _redisCacheService.SetAsync($"UserToken:{user.Id}", newUserToken, TimeSpan.FromDays(_jwtSettings.AccessTokenExpirationMinutes));
-                
+
                 }
 
                 return Response<TokenDTO>.SuccessResponse(new TokenDTO
@@ -144,7 +176,53 @@ namespace Identity.Application.Imp
                 return Response<TokenDTO>.Failure(new Error(ex.Message));
             }
         }
+        public async Task<Response<UserInfoDTO>> GetLoggedUserInfo()
+        {
+            try
+            {
+                string userid = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var user = await _unitOfWork._UserManager.FindByIdAsync(userid.ToString());
+                if (user == null)
+                    return Response<UserInfoDTO>.Failure(new Error("User not found"));
+                var roles = await _unitOfWork._UserManager.GetRolesAsync(user);
+                var userInfo = new UserInfoDTO
+                {
 
+                    UserName = user.UserName,
+                    Email = user.Email,
+                    Roles = roles.ToList(),
+                    PhoneNumber = user.PhoneNumber,
+                    TwoFactorEnabled = user.TwoFactorEnabled,
+                };
+                return Response<UserInfoDTO>.SuccessResponse(userInfo);
+            }
+            catch (Exception ex)
+            {
+
+                return Response<UserInfoDTO>.Failure(new Error(ex.Message));
+            }
+
+
+
+        }
+        public async Task<Response<bool>> SetTwoFactorStatus(bool status)
+        {
+            try
+            {
+                string userid = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var user = await _unitOfWork._UserManager.FindByIdAsync(userid.ToString());
+                if (user == null)
+                    return Response<bool>.Failure(new Error("User not found"));
+                _unitOfWork._UserManager.SetTwoFactorEnabledAsync(user, status);
+                return Response<bool>.SuccessResponse(status);
+            }
+            catch (Exception ex)
+            {
+                return Response<bool>.Failure(new Error(ex.Message));
+            }
+
+        }
+        
         // use it in case SingleSession
         public async Task<Response<TokenDTO>> LogoutAsync(string accessToken)
         {

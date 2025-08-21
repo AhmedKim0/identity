@@ -9,6 +9,7 @@ namespace Identity.Application.Int
         Task<Response<string>> GenerateOtp(string email);
         Task<Response<bool>> VerifyOtpAsync(VerifyOtpDto dto);
         Task<Response<bool>> UseOTPAsync(VerifyOtpDto dto);
-
+        Task<Response<bool>> GenerateEmailVerificationTokenAsync(string email);
+        Task<Response<string>> EmailConfirmAsync(string userId, string token);
     }
 }

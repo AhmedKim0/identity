@@ -86,6 +86,39 @@ namespace Identity.API.Controllers
                 return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
             }
         }
+        [HttpGet("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail(string userId, string token)
+        {
+            try
+            {
+                var result = await _otpService.EmailConfirmAsync(userId, token);
+                if (!result.Success)
+                    return BadRequest(result);
 
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
+            }
+        }
+        [HttpPost("SendEmailConfim")]
+        public async Task<IActionResult> SendEmailConfim(string email)
+        {
+            try
+            {
+                var result = await _otpService.GenerateEmailVerificationTokenAsync(email);
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
+            }
+
+
+        }
     }
 }

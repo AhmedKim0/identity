@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +17,9 @@ namespace Identity.Domain.Entities
         public DateTime? UpdatedAtUtc { get; set; }
         public int? UpdatedBy { get; set; }
         public bool IsDeleted { get; set; } = false;
+        public int VerificationAttempts { get; set; }
+        public DateTime? LastVerificationSentAt { get; set; }
+
 
     }
 }

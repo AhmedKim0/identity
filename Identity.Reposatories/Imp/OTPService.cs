@@ -3,6 +3,7 @@ using Identity.Application.DTO.OTP;
 using Identity.Application.Int;
 using Identity.Application.UOW;
 using Identity.Domain.Entities;
+using Identity.Domain.Enums;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -306,5 +307,65 @@ namespace Identity.Application.Imp
 
         }
 
+        public async Task<Response<bool>> GenerateEmailVerificationTokenAsync(string email)
+        {
+            await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            try
+            {
+                if (!IsValidEmail(email))
+                {
+                    return Response<bool>.Failure(new Error("Invalid email format."));
+                }
+                email = NormalizeEmail(email);
+                var user = await _unitOfWork._UserManager.FindByEmailAsync(email);
+
+                if (user == null)
+                    return Response<bool>.Failure(new Error("Invalid email format."));
+                if (!SharedFunctions.CanSendMail( user))
+                    return Response<bool>.SuccessResponse(false);
+                var token = await _unitOfWork._UserManager.GenerateEmailConfirmationTokenAsync(user);
+                var encodedToken = System.Web.HttpUtility.UrlEncode(token);
+                var confirmationLink = $"https://localhost:7056/api/OTP/confirm-email?userId={user.Id}&token={encodedToken}";
+                var sendmail = await _emailService.GetEmailStructure(EmailStructure.Token, user.Email);
+                var placeholders = new Dictionary<string, string>
+                {
+                    { "type", "Email Verification" },
+                    { "linkhere",confirmationLink  }
+                };
+                sendmail = _emailService.ReplacePlaceholders(sendmail, placeholders);
+                await _emailService.SendEmailAsync(sendmail);
+                
+                // Generate and send verification token logic here
+                await _unitOfWork.CommitTransactionAsync();
+                return Response<bool>.SuccessResponse(true);
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return Response<bool>.Failure(new Error("An error occurred while generating email verification token: " + ex.Message));
+            }
+
+
+        }
+        public async Task<Response<string>> EmailConfirmAsync (string userId,string token)
+        {
+            var user = await _unitOfWork._UserManager.FindByIdAsync(userId);
+            if (user == null)
+                return Response<string>.Failure(new Error("User not found"));
+                          
+                    var result = await _unitOfWork._UserManager.ConfirmEmailAsync(user, token);
+                    if (!result.Succeeded)
+                    {
+                        var errors = result.Errors.Select(e => new Error(e.Description, e.Code)).ToList();
+                        return Response<string>.Failure(errors);
+                    }
+                    return Response<string>.SuccessResponse("Email verified successfully");
+               
+        }
+
+
+
+
     }
+
 }

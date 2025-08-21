@@ -63,7 +63,6 @@ namespace Identity.Application.Imp
 
                 var client = _httpClientFactory.CreateClient();
 
-                // Step 1: Exchange code for access token
                 var tokenResponse = await client.PostAsync(
                     "https://oauth2.googleapis.com/token",
                     new FormUrlEncodedContent(new Dictionary<string, string>
