@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Identity.Domain.SharedEntities;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Identity.Domain.Enums;
 
 namespace Identity.Domain.Entities
 {
@@ -16,8 +17,8 @@ namespace Identity.Domain.Entities
         public string Code { get; set; }
         public bool IsExpired { get; set; }
         public bool IsVerified { get; set; }
+        public OtpPurpose otpPurpose { get; set; }
 
-        public bool IsUsed { get; set; }
         public DateTime CreatedAtUTC { get; set; }
 
         public DateTime ExpireAt { get; set; }

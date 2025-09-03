@@ -5,6 +5,8 @@ using Identity.Application;
 
 using Microsoft.AspNetCore.Mvc;
 using Identity.Application.Imp;
+using Identity.Domain.Enums;
+using static System.Net.WebRequestMethods;
 
 namespace Identity.API.Controllers
 {
@@ -20,12 +22,12 @@ namespace Identity.API.Controllers
 
         }
 
-        [HttpPost("Generate")]
-        public async Task<IActionResult> Generate([FromBody] string email)
+        [HttpGet("Generate")]
+        public async Task<IActionResult> Generate( string email,  OtpPurpose otp)
         {
             try
             {
-                var result = await _otpService.GenerateOtp(email);
+                var result = await _otpService.GenerateOtp(email,  otp);
                 if (!result.Success)
                     return BadRequest(result);
 
@@ -59,7 +61,7 @@ namespace Identity.API.Controllers
         {
             try
             {
-                var result = await _otpService.ChangePassword(dto.Email, dto.Password, dto.Otp);
+                var result = await _otpService.ChangePassword(dto.Email, dto.Password, dto.Otp,dto.otpPurpose);
                 if (!result.Success)
                     return BadRequest(result);
 
@@ -70,22 +72,7 @@ namespace Identity.API.Controllers
                 return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
             }
         }
-        [HttpPost("UseOTP")]
-        public async Task<IActionResult> UseOTP([FromBody] VerifyOtpDto dto)
-        {
-            try
-            {
-                var result = await _otpService.UseOTPAsync(dto);
-                if (!result.Success)
-                    return BadRequest(result);
 
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
-            }
-        }
         [HttpGet("confirm-email")]
         public async Task<IActionResult> ConfirmEmail(string userId, string token)
         {

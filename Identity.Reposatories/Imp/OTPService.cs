@@ -21,10 +21,7 @@ namespace Identity.Application.Imp
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEmailService _emailService;
 
-        public OTPService()
-        {
 
-        }
 
         public OTPService(
             IConfiguration configuration, IUnitOfWork unitOfWork, IEmailService emailService)
@@ -85,7 +82,7 @@ namespace Identity.Application.Imp
         }
 
 
-        public async Task<Response<string>> GenerateOtp(string email)
+        public async Task<Response<string>> GenerateOtp(string email, OtpPurpose otpPurpose)
         {
             await _unitOfWork.BeginTransactionAsync(default);
             try
@@ -115,13 +112,18 @@ namespace Identity.Application.Imp
                     await _unitOfWork.RollbackTransactionAsync();
                     return Response<string>.Failure(new Error("You have reached the maximum number of OTP requests for today."));
                 }
+                if(verification.BlockedUntil.HasValue && verification.BlockedUntil.Value > now)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return Response<string>.Failure(new Error("You are Blocked Please ComeBack later!."));
+                }
 
                 string code = RandomOtpGenerator();
                 var otp = new OTPCode
                 {
                     EmailVerificationId = verification.Id,
                     Code = code,
-                    IsUsed = false,
+                    otpPurpose = otpPurpose,
                     CreatedAtUTC = now,
                     IsExpired = false,
                     ExpireAt = now.AddMinutes(double.TryParse(_configuration["OTP:ExpireInMin"], out double mins) ? mins : 15),
@@ -147,13 +149,13 @@ namespace Identity.Application.Imp
             }
         }
 
-        public async Task<Response<bool>> ChangePassword(string Email, string Password, string Otp)
+        public async Task<Response<bool>> ChangePassword(string Email, string Password, string Otp, OtpPurpose otpPurpose)
         {
             await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             try
             {
                 var otp = await _unitOfWork.OTPCodes.Dbset().Include(x => x.EmailVerification).Include(x => x.OTPTries)
-                    .Where(x => x.EmailVerification.Email == Email && x.Code == Otp)
+                    .Where(x => x.EmailVerification.Email == Email && x.Code == Otp&&x.otpPurpose== otpPurpose)
                     .OrderByDescending(x => x.CreatedAtUTC).FirstOrDefaultAsync();
 
 
@@ -164,7 +166,6 @@ namespace Identity.Application.Imp
 
                 var emailVerification = otp.EmailVerification;
                 emailVerification.IsVerified = true;
-                otp.IsUsed = true;
                 otp.IsExpired = true;
                 _unitOfWork.OTPCodes.Dbset().Update(otp);
                 _unitOfWork.EmailVerifications.Dbset().Update(emailVerification);
@@ -187,17 +188,16 @@ namespace Identity.Application.Imp
                 var otp = await _unitOfWork.OTPCodes.Dbset()
                     .Include(x => x.EmailVerification)
                     .Include(x => x.OTPTries)
-                    .Where(x => x.EmailVerification.Email == dto.Email 
-                                 &&(!x.IsUsed || !x.IsExpired) )
+                    .Where(x => x.EmailVerification.Email == dto.Email &&x.otpPurpose==dto.otpPurpose)
                     .OrderByDescending(x => x.CreatedAtUTC)
                     .FirstOrDefaultAsync();
 
                 if (otp == null)
                 {
-                    return Response<bool>.Failure(new Error("OTP not found "));
+                    return Response<bool>.Failure(new Error("OTP expired "));
                 }
                 // Check expiry
-                if (otp.ExpireAt < DateTime.UtcNow)
+                if (otp.ExpireAt < DateTime.UtcNow || otp.IsExpired)
                 {
                     otp.IsExpired = true;
                     _unitOfWork.OTPCodes.Dbset().Update(otp);
@@ -206,12 +206,14 @@ namespace Identity.Application.Imp
                 }
 
                 // Check tries
-
+                
                 int maxTries = int.Parse(_configuration["OTP:MaxTries"]);
                 if (otp.OTPTries.Count >= maxTries)
                 {
+                    otp.EmailVerification.BlockedUntil = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["OTP:BlockDuration"]));
                     otp.IsExpired = true;
                     _unitOfWork.OTPCodes.Dbset().Update(otp);
+                    _unitOfWork.EmailVerifications.Dbset().Update(otp.EmailVerification);
                     await _unitOfWork.CommitTransactionAsync();
                     return Response<bool>.Failure(new Error("Too many attempts. OTP expired."));
                 }
@@ -242,7 +244,6 @@ namespace Identity.Application.Imp
                     IsSuccess = true
                 });
                 otp.IsVerified = true;
-                otp.IsUsed = false;
                 otp.IsExpired = true;
                 otp.EmailVerification.IsVerified = true;
 
@@ -259,53 +260,7 @@ namespace Identity.Application.Imp
             }
         }
 
-        public async Task<Response<bool>> UseOTPAsync(VerifyOtpDto dto)
-        {
-            await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
-            try
-            {
-                var otp = await _unitOfWork.OTPCodes.Dbset()
-                    .Include(x => x.EmailVerification)
-                    .Include(x => x.OTPTries)
-                    .Where(x => x.EmailVerification.Email == dto.Email &&
-                                x.Code == dto.Otp &&
-                                !x.IsUsed && x.IsVerified)
-
-                    .OrderByDescending(x => x.CreatedAtUTC)
-                    .FirstOrDefaultAsync();
-
-                if (otp == null || otp.ExpireAt < DateTime.UtcNow)
-                {
-                    if (otp != null)
-                    {
-                        otp.OTPTries.Add(new OTPTry
-                        {
-                            TryAt = DateTime.UtcNow,
-                            IsSuccess = false
-                        });
-
-                        otp.IsExpired = true;
-                        _unitOfWork.OTPCodes.Dbset().Update(otp);
-                        await _unitOfWork.CommitTransactionAsync();
-                    }
-
-                    return Response<bool>.Failure(new Error("OTP is invalid or expired"));
-                }
-                otp.IsUsed = true;
-                _unitOfWork.OTPCodes.Dbset().Update(otp);
-                _unitOfWork.EmailVerifications.Dbset().Update(otp.EmailVerification);
-
-                await _unitOfWork.CommitTransactionAsync();
-                return Response<bool>.SuccessResponse(true);
-            }
-            catch (Exception ex)
-            {
-                await _unitOfWork.RollbackTransactionAsync();
-                return Response<bool>.Failure(new Error("An error occurred while verifying OTP: " + ex.Message));
-            }
-
-
-        }
+        
 
         public async Task<Response<bool>> GenerateEmailVerificationTokenAsync(string email)
         {

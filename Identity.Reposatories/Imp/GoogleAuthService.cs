@@ -135,6 +135,7 @@ namespace Identity.Application.Imp
                     RefreshToken = token.refreshToken,
                     ExpireAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
                 };
+                // implement redis chace
                 return Response<TokenDTO?>.SuccessResponse(existUserResponse);
             }
             catch (Exception ex)
