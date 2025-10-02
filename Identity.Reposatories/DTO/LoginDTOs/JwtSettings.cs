@@ -15,6 +15,8 @@ namespace Identity.Application.DTO.LoginDTOs
         public int AccessTokenExpirationMinutes { get; set; }
         public int RefreshTokenExpirationDays { get; set; }
         public bool SingleSession { get; set; } = false;
+        public bool ConfirmPhone { get; set; } = false;
+        public bool ConfirmEmail { get; set; } = true;
     }
 
 }

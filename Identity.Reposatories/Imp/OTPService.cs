@@ -11,9 +11,11 @@ using Microsoft.Extensions.Configuration;
 using System.Data;
 using System.Text;
 
+using static System.Net.WebRequestMethods;
+
 namespace Identity.Application.Imp
 {
-    
+
     public class OTPService : IOTPService
     {
 
@@ -84,7 +86,7 @@ namespace Identity.Application.Imp
 
         public async Task<Response<string>> GenerateOtp(string email, OtpPurpose otpPurpose)
         {
-            await _unitOfWork.BeginTransactionAsync(default);
+            await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             try
             {
                 var now = DateTime.UtcNow;
@@ -112,7 +114,7 @@ namespace Identity.Application.Imp
                     await _unitOfWork.RollbackTransactionAsync();
                     return Response<string>.Failure(new Error("You have reached the maximum number of OTP requests for today."));
                 }
-                if(verification.BlockedUntil.HasValue && verification.BlockedUntil.Value > now)
+                if (verification.BlockedUntil.HasValue && verification.BlockedUntil.Value > now)
                 {
                     await _unitOfWork.RollbackTransactionAsync();
                     return Response<string>.Failure(new Error("You are Blocked Please ComeBack later!."));
@@ -131,14 +133,23 @@ namespace Identity.Application.Imp
 
                 _unitOfWork.OTPCodes.Dbset().Add(otp);
                 await _unitOfWork.OTPCodes.SaveChangesAsync();
-                var messege = await _emailService.GetEmailStructure(EmailStructure.OTP_English, email);
-                var placeholders = new Dictionary<string, string>
+                if (otpPurpose == OtpPurpose.PhoneVerification)
+                {
+                    // ineed sms provider
+
+                }
+                else
+                {
+                    var messege = await _emailService.GetEmailStructure(EmailStructure.OTP_English, email);
+                    var placeholders = new Dictionary<string, string>
                 {
                     { "otpValue", code },
                     { "verificationCodeExpireAfterMins", _configuration["OTP:ExpireInMin"] }
                 };
-                messege = _emailService.ReplacePlaceholders(messege, placeholders);
-                await _emailService.SendEmailAsync(messege);
+                    messege = _emailService.ReplacePlaceholders(messege, placeholders);
+                    await _emailService.SendEmailAsync(messege);
+                }
+
                 await _unitOfWork.CommitTransactionAsync();
                 return Response<string>.SuccessResponse("OTP sent successfully.");
             }
@@ -155,7 +166,7 @@ namespace Identity.Application.Imp
             try
             {
                 var otp = await _unitOfWork.OTPCodes.Dbset().Include(x => x.EmailVerification).Include(x => x.OTPTries)
-                    .Where(x => x.EmailVerification.Email == Email && x.Code == Otp&&x.otpPurpose== otpPurpose)
+                    .Where(x => x.EmailVerification.Email == Email && x.Code == Otp && x.otpPurpose == otpPurpose)
                     .OrderByDescending(x => x.CreatedAtUTC).FirstOrDefaultAsync();
 
 
@@ -167,6 +178,9 @@ namespace Identity.Application.Imp
                 var emailVerification = otp.EmailVerification;
                 emailVerification.IsVerified = true;
                 otp.IsExpired = true;
+                var user = await _unitOfWork._UserManager.FindByEmailAsync(Email);
+                var token = await _unitOfWork._UserManager.GeneratePasswordResetTokenAsync(user);
+                var result = await _unitOfWork._UserManager.ResetPasswordAsync(user, token, Password);
                 _unitOfWork.OTPCodes.Dbset().Update(otp);
                 _unitOfWork.EmailVerifications.Dbset().Update(emailVerification);
                 await _unitOfWork.CommitTransactionAsync();
@@ -188,7 +202,7 @@ namespace Identity.Application.Imp
                 var otp = await _unitOfWork.OTPCodes.Dbset()
                     .Include(x => x.EmailVerification)
                     .Include(x => x.OTPTries)
-                    .Where(x => x.EmailVerification.Email == dto.Email &&x.otpPurpose==dto.otpPurpose)
+                    .Where(x => x.EmailVerification.Email == dto.Email && x.otpPurpose == dto.otpPurpose)
                     .OrderByDescending(x => x.CreatedAtUTC)
                     .FirstOrDefaultAsync();
 
@@ -206,7 +220,7 @@ namespace Identity.Application.Imp
                 }
 
                 // Check tries
-                
+
                 int maxTries = int.Parse(_configuration["OTP:MaxTries"]);
                 if (otp.OTPTries.Count >= maxTries)
                 {
@@ -243,7 +257,6 @@ namespace Identity.Application.Imp
                     TryAt = DateTime.UtcNow,
                     IsSuccess = true
                 });
-                otp.IsVerified = true;
                 otp.IsExpired = true;
                 otp.EmailVerification.IsVerified = true;
 
@@ -260,7 +273,7 @@ namespace Identity.Application.Imp
             }
         }
 
-        
+
 
         public async Task<Response<bool>> GenerateEmailVerificationTokenAsync(string email)
         {
@@ -276,7 +289,7 @@ namespace Identity.Application.Imp
 
                 if (user == null)
                     return Response<bool>.Failure(new Error("Invalid email format."));
-                if (!SharedFunctions.CanSendMail( user))
+                if (!SharedFunctions.CanSendMail(user))
                     return Response<bool>.SuccessResponse(false);
                 var token = await _unitOfWork._UserManager.GenerateEmailConfirmationTokenAsync(user);
                 var encodedToken = System.Web.HttpUtility.UrlEncode(token);
@@ -289,7 +302,7 @@ namespace Identity.Application.Imp
                 };
                 sendmail = _emailService.ReplacePlaceholders(sendmail, placeholders);
                 await _emailService.SendEmailAsync(sendmail);
-                
+
                 // Generate and send verification token logic here
                 await _unitOfWork.CommitTransactionAsync();
                 return Response<bool>.SuccessResponse(true);
@@ -302,21 +315,59 @@ namespace Identity.Application.Imp
 
 
         }
-        public async Task<Response<string>> EmailConfirmAsync (string userId,string token)
+        public async Task<Response<string>> EmailConfirmAsync(string userId, string token)
         {
             var user = await _unitOfWork._UserManager.FindByIdAsync(userId);
             if (user == null)
                 return Response<string>.Failure(new Error("User not found"));
-                          
-                    var result = await _unitOfWork._UserManager.ConfirmEmailAsync(user, token);
-                    if (!result.Succeeded)
-                    {
-                        var errors = result.Errors.Select(e => new Error(e.Description, e.Code)).ToList();
-                        return Response<string>.Failure(errors);
-                    }
-                    return Response<string>.SuccessResponse("Email verified successfully");
-               
+
+            var result = await _unitOfWork._UserManager.ConfirmEmailAsync(user, token);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => new Error(e.Description, e.Code)).ToList();
+                return Response<string>.Failure(errors);
+            }
+            return Response<string>.SuccessResponse("Email verified successfully");
+
         }
+        public async Task<Response<bool>> PhoneConfirmAsync(string phone ,  string Otp )
+        {
+            //// ineed sms provider
+            await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            try
+            {
+                var otp = await _unitOfWork.OTPCodes.Dbset().Include(x => x.EmailVerification).Include(x => x.OTPTries)
+                    .Where(x => x.EmailVerification.Phone == phone && x.Code == Otp && x.otpPurpose == OtpPurpose.PhoneVerification)
+                    .OrderByDescending(x => x.CreatedAtUTC).FirstOrDefaultAsync();
+
+
+                if (otp == null || otp.ExpireAt < DateTime.UtcNow || otp.IsExpired == true)
+                {
+                    return Response<bool>.Failure(new Error("OTP not found or expired"));
+                }
+
+                var emailVerification = otp.EmailVerification;
+                emailVerification.IsVerified = true;
+                otp.IsExpired = true;
+                var user = await _unitOfWork._UserManager.Users
+                                              .FirstOrDefaultAsync(u => u.PhoneNumber == phone);
+                user.PhoneNumberConfirmed = true;
+
+                _unitOfWork.OTPCodes.Dbset().Update(otp);
+                _unitOfWork.EmailVerifications.Dbset().Update(emailVerification);
+                var result = await _unitOfWork._UserManager.UpdateAsync(user);
+                await _unitOfWork.CommitTransactionAsync();
+                return Response<bool>.SuccessResponse(true);
+
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return Response<bool>.Failure(new Error("An error occurred while changing password: " + ex.Message));
+            }
+
+        }
+
 
 
 

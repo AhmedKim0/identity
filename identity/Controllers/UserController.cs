@@ -22,7 +22,7 @@ namespace Identity.API.Controllers
         {
             try
             {
-                var result = await _userServices.CreateUserAsync(createUserDTO.email, createUserDTO.password, createUserDTO.fullName);
+                var result = await _userServices.CreateUserAsync(createUserDTO.email, createUserDTO.password, createUserDTO.fullName, createUserDTO.phone);
                 if (!result.Success)
                 {
                     return BadRequest(result);
@@ -40,7 +40,7 @@ namespace Identity.API.Controllers
         {
             try
             {
-                var result = await _userServices.UpdateUserAsync(updateUserDTO.Id , updateUserDTO.NewEmail, updateUserDTO.NewFullName);
+                var result = await _userServices.UpdateUserAsync(updateUserDTO.Id , updateUserDTO.NewEmail, updateUserDTO.NewFullName,updateUserDTO.Phone);
                 if (!result.Success)
                 {
                     return BadRequest(result);
@@ -71,6 +71,48 @@ namespace Identity.API.Controllers
             {
                 return StatusCode(500, Response<UserDTO>.Failure(new Error(ex.Message)));
             }
+        }
+        [HttpGet("GetAllUsers")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            {
+                try
+                {
+                    var result = await _userServices.GetAllUsers();
+                    if (!result.Success)
+                    {
+                        return BadRequest(result);
+                    }
+                    return Ok(result);
+                }
+                catch
+                (Exception ex)
+                {
+                    return StatusCode(500, Response<UserDTO>.Failure(new Error(ex.Message)));
+                }
+            }
+
+        }
+        [HttpGet("GetUserById")]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            {
+                try
+                {
+                    var result = await _userServices.GetUserByIdAsync(id);
+                    if (!result.Success)
+                    {
+                        return BadRequest(result);
+                    }
+                    return Ok(result);
+                }
+                catch
+                (Exception ex)
+                {
+                    return StatusCode(500, Response<UserDTO>.Failure(new Error(ex.Message)));
+                }
+            }
+
         }
     }
 }

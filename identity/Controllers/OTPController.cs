@@ -73,7 +73,7 @@ namespace Identity.API.Controllers
             }
         }
 
-        [HttpGet("confirm-email")]
+        [HttpGet("confirmemail")]
         public async Task<IActionResult> ConfirmEmail(string userId, string token)
         {
             try
@@ -106,6 +106,22 @@ namespace Identity.API.Controllers
             }
 
 
+        }
+        [HttpPost("confirmPhone")]
+        public async Task<IActionResult> confirmPhone(string userId, string otp)
+        {
+            try
+            {
+                var result = await _otpService.PhoneConfirmAsync(userId, otp);
+                if (!result.Success)
+                    return BadRequest(result);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Response<bool>.Failure(new Error(ex.Message)));
+            }
         }
     }
 }

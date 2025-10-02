@@ -32,28 +32,47 @@ namespace Identity.Application.Imp
 
             return Response<List<UserDTO>>.SuccessResponse(users);
         }
+        public async Task<Response<UserDTO>> GetUserByIdAsync(int id)
+        {
+            var users = await _unitOfWork._UserManager.Users.Where(x=>x.Id==id)
+                .Select(u => new UserDTO
+                {
+                    Id = u.Id,
+                    Email = u.Email,
+                    UserName = u.UserName
+                })
+                .FirstOrDefaultAsync();
 
-        public async Task<Response<UserDTO>> CreateUserAsync(string email, string password, string fullName)
+            return Response<UserDTO>.SuccessResponse(users);
+        }
+
+        public async Task<Response<UserDTO>> CreateUserAsync(string? email, string password, string username,string? phone)
         {
             await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             try
             {
+                if(string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(phone))
+                {
+                    return Response<UserDTO>.Failure(new Error("Email or phone are required"));
+                }
                 email = SharedFunctions.NormalizeEmail(email);
+                if (!SharedFunctions.IsValidEmail(email))
+                {
+                    return Response<UserDTO>.Failure(new Error("Invalid email format"));
+                }
                 var userExists = await _unitOfWork._UserManager.FindByEmailAsync(email);
                 if (userExists != null)
                 {
                     return Response<UserDTO>.Failure(new Error("User already exists"));
                 }
-                if (!SharedFunctions.IsValidEmail(email))
-                {
-                    return Response<UserDTO>.Failure(new Error("Invalid email format"));
-                }
+
 
 
                 var user = new AppUser
                 {
-                    UserName = email,
-                    Email = email
+                    UserName = username,
+                    Email = email,
+                    PhoneNumber = phone,
                 };
 
                 var result = await _unitOfWork._UserManager.CreateAsync(user, password);
@@ -74,6 +93,7 @@ namespace Identity.Application.Imp
                     Id = user.Id,
                     Email = user.Email,
                     UserName = user.UserName,
+                    PhoneNumber = user.PhoneNumber
                 };
 
                 return Response<UserDTO>.SuccessResponse(userDto);
@@ -85,7 +105,7 @@ namespace Identity.Application.Imp
             }
         }
 
-        public async Task<Response<UserDTO>> UpdateUserAsync(int userId, string newEmail, string newFullName)
+        public async Task<Response<UserDTO>> UpdateUserAsync(int userId, string newEmail, string newFullName,string newPhone)
         {
             newEmail = SharedFunctions.NormalizeEmail(newEmail);
             var user = await _unitOfWork._UserManager.FindByIdAsync(userId.ToString());
@@ -101,6 +121,7 @@ namespace Identity.Application.Imp
 
             user.Email = newEmail;
             user.UserName = newEmail;
+            user.PhoneNumber = newPhone;
 
             var result = await _unitOfWork._UserManager.UpdateAsync(user);
             if (!result.Succeeded)

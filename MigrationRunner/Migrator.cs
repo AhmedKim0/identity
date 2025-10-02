@@ -124,6 +124,7 @@ internal class Migrator
             {
                 var createduser = await userManager.CreateAsync(newuser, "Asd1236@");
                 await userManager.AddToRoleAsync(newuser, "admin");
+                await userManager.ConfirmEmailAsync(newuser, await userManager.GenerateEmailConfirmationTokenAsync(newuser));
                 Console.WriteLine("user admin created and added to admin role.");
 
             }

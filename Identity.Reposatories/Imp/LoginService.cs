@@ -3,13 +3,16 @@ using Identity.Application.DTO.LoginDTOs;
 using Identity.Application.Int;
 using Identity.Application.UOW;
 using Identity.Domain.Entities;
+using Identity.Domain.Enums;
 using Identity.Domain.IReposatory;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 using System.IdentityModel.Tokens.Jwt;
+using System.Numerics;
 using System.Security.Claims;
 using System.Text;
 
@@ -41,8 +44,18 @@ namespace Identity.Application.Imp
         {
             try
             {
-                model.Username = SharedFunctions.NormalizeEmail(model.Username);
-                var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
+                if(_jwtSettings.SingleSession == false)
+                    return Response<bool>.Failure(new Error("This feature is Turned Off"));
+                model.LoginKey = SharedFunctions.NormalizeEmail(model.LoginKey);
+
+                var user = model.loginBy switch
+                {
+                    LoginBy.UserName => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey),
+                    LoginBy.Email => await _unitOfWork._UserManager.FindByEmailAsync(model.LoginKey),
+                    LoginBy.Phone => await _unitOfWork._UserManager.Users
+                                              .FirstOrDefaultAsync(u => u.PhoneNumber == model.LoginKey),
+                    _ => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey)
+                }; 
                 if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<bool>.Failure(new Error("Invalid username or password"));
                 var userToken = await _redisCacheService?.GetAsync<UserToken>($"UserToken:{user.Id}");
@@ -63,18 +76,37 @@ namespace Identity.Application.Imp
             //await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
             {
-                model.Username = SharedFunctions.NormalizeEmail(model.Username);
+                model.LoginKey = SharedFunctions.NormalizeEmail(model.LoginKey);
 
-                var user = await _unitOfWork._UserManager.FindByEmailAsync(model.Username);
+                var user = model.loginBy switch
+                {
+                    LoginBy.UserName => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey),
+                    LoginBy.Email => await _unitOfWork._UserManager.FindByEmailAsync(model.LoginKey),
+                    LoginBy.Phone => await _unitOfWork._UserManager.Users
+                                              .FirstOrDefaultAsync(u => u.PhoneNumber == model.LoginKey),
+                    _ => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey)
+                }; 
                 if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<TokenDTO>.Failure(new Error("Invalid username or password"));
-                if (!await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
+                if (_jwtSettings.ConfirmEmail && !await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
                 {
                     if (!SharedFunctions.CanSendMail(user))
                     return Response<TokenDTO>.Failure(new Error("Please Confirm your Email Later"));
 
-                    _oTPService.GenerateEmailVerificationTokenAsync(user.Email);
+                   await _oTPService.GenerateEmailVerificationTokenAsync(user.Email);
+                    return Response<TokenDTO>.Failure(new Error("Please Confirm your Email"));
                 }
+                // i need sms provider!!!
+
+                //if (_jwtSettings.ConfirmPhone && !await _unitOfWork._UserManager.IsPhoneNumberConfirmedAsync(user))
+                //{
+                //    //if (!SharedFunctions.CanSendMail(user))
+                //        return Response<TokenDTO>.Failure(new Error("Please Confirm your phone Later"));
+
+                //    await _oTPService.GenerateEmailVerificationTokenAsync(user.Email);
+                //    return Response<TokenDTO>.Failure(new Error("Please Confirm your phone"));
+                //}
+
                 if (user.TwoFactorEnabled)
                 {
                     var token = await _unitOfWork._UserManager.GenerateTwoFactorTokenAsync(user, "Email");

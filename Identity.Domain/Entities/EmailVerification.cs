@@ -8,6 +8,8 @@ namespace Identity.Domain.Entities
 
         public string Email { get; set; }
         public bool IsVerified { get; set; }
+        public string? Phone { get; set; }
+
         public DateTime? BlockedUntil { get; set; }
         public ICollection<OTPCode> OTPCodes { get; set; } = new List<OTPCode>();
 
