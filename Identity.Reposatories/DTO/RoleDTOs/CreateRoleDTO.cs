@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace Identity.Application.DTO.RoleDTOs
 {
-    public class AssignRolesToUserDTO
+    public class CreateRoleDTO
     {
-        public int userId { get; set; }
-
-        public List<string> RoleName { get; set;}
+        public string Name { get; set; }
+        public string NameAr { get; set; }
+        public string NameEn { get; set; }
     }
 }

@@ -2,13 +2,15 @@
 using Identity.Application.DTO.LoginDTOs;
 using Identity.Application.Int;
 
+using MCDRServices.Requests.Api.Mobile.Controllers;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace Identity.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class LogInController : ControllerBase
+    public class LogInController : BaseController
     {
         private readonly ILoginService _loginService;
         private readonly IGoogleAuthService _googleAuthService;

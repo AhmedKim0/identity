@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Identity.Domain.Entities
 {
-    public class EmailBody : BaseEntity
+    public class EmailBody : BaseEntity, IBaseEntity
     {
         public string Name { get; set; } = null!;
 

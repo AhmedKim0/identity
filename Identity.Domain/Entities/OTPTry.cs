@@ -2,7 +2,7 @@
 
 namespace Identity.Domain.Entities
 {
-    public class OTPTry : BaseEntity
+    public class OTPTry : BaseEntity, IBaseEntity
     {
         public int OTPCodeId { get; set; }
         public DateTime TryAt { get; set; }

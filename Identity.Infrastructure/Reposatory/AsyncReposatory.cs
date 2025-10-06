@@ -52,7 +52,11 @@ namespace Identity.Infrastructure.Reposatory
 
             await _context.Set<TEntity>().AddAsync(entity);
         }
-
+        public async Task DeleteRangeAsync(IEnumerable<TEntity> entities)
+        {
+            _context.RemoveRange(entities);
+            await Task.CompletedTask;
+        }
         public async Task UpdateAsync(TEntity entity)
         {
 
@@ -63,9 +67,14 @@ namespace Identity.Infrastructure.Reposatory
 
         public async Task DeleteAsync(TEntity entity)
         {
-            entity.IsDeleted = true;
              _context.Set<TEntity>().Remove(entity);
             await Task.CompletedTask; // for async signature
+        }
+        public async Task DeleteRangeAsync(IEnumerable<int> ids)
+        {
+            var entities = await _context.Set<TEntity>().Where(e => ids.Contains(e.Id)).ToListAsync();
+            if (entities.Any())
+                _context.RemoveRange(entities);
         }
 
         public Task<int> SaveChangesAsync()

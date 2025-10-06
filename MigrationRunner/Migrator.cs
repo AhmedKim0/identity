@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Linq;
 
 
 
@@ -55,61 +56,105 @@ internal class Migrator
                 Console.WriteLine("Database already exists. Skipping migration.");
             }
 
-            var permissions = new[]
+            var newpermissions = new Permission[]
+ {
+    // Login
+    new Permission { NameLogical = "login.isloggedin", NameAr = "هل المستخدم مسجل دخول", NameEn = "Is Logged In" },
+    new Permission { NameLogical = "login.login", NameAr = "تسجيل الدخول", NameEn = "Login" },
+    new Permission { NameLogical = "login.googlelogin", NameAr = "تسجيل الدخول بجوجل", NameEn = "Google Login" },
+    new Permission { NameLogical = "login.refresh-token", NameAr = "تحديث التوكن", NameEn = "Refresh Token" },
+    new Permission { NameLogical = "login.logout", NameAr = "تسجيل الخروج", NameEn = "Logout" },
 
+    // OTP
+    new Permission { NameLogical = "otp.generate", NameAr = "إرسال رمز التحقق", NameEn = "Generate OTP" },
+    new Permission { NameLogical = "otp.verify", NameAr = "تأكيد رمز التحقق", NameEn = "Verify OTP" },
+    new Permission { NameLogical = "otp.changepassword", NameAr = "تغيير كلمة المرور", NameEn = "Change Password" },
+    new Permission { NameLogical = "otp.confirmemail", NameAr = "تأكيد البريد الإلكتروني", NameEn = "Confirm Email" },
+    new Permission { NameLogical = "otp.SendEmailConfim", NameAr = "إرسال تأكيد البريد", NameEn = "Send Email Confirmation" },
+    new Permission { NameLogical = "otp.confirmPhone", NameAr = "تأكيد رقم الهاتف", NameEn = "Confirm Phone" },
+
+    // Permission
+    new Permission { NameLogical = "permission.getall", NameAr = "عرض جميع الصلاحيات", NameEn = "Get All Permissions" },
+    new Permission { NameLogical = "permission.getbyid", NameAr = "عرض صلاحية معينة", NameEn = "Get Permission By Id" },
+    new Permission { NameLogical = "permission.create", NameAr = "إنشاء صلاحية", NameEn = "Create Permission" },
+    new Permission { NameLogical = "permission.update", NameAr = "تحديث صلاحية", NameEn = "Update Permission" },
+    new Permission { NameLogical = "permission.delete", NameAr = "حذف صلاحية", NameEn = "Delete Permission" },
+    new Permission { NameLogical = "permission.assign", NameAr = "إسناد صلاحية", NameEn = "Assign Permission" },
+    new Permission { NameLogical = "permission.getpermissionsbyrole", NameAr = "عرض صلاحيات الدور", NameEn = "Get Permissions By Role" },
+
+    // Role
+    new Permission { NameLogical = "role.getall", NameAr = "عرض جميع الأدوار", NameEn = "Get All Roles" },
+    new Permission { NameLogical = "role.getbyid", NameAr = "عرض دور معين", NameEn = "Get Role By Id" },
+    new Permission { NameLogical = "role.assignrolestouser", NameAr = "إسناد الأدوار للمستخدم", NameEn = "Assign Roles To User" },
+    new Permission { NameLogical = "role.create", NameAr = "إنشاء دور", NameEn = "Create Role" },
+    new Permission { NameLogical = "role.delete", NameAr = "حذف دور", NameEn = "Delete Role" },
+    new Permission { NameLogical = "role.assigntouser", NameAr = "إسناد دور لمستخدم", NameEn = "Assign Role To User" },
+    new Permission { NameLogical = "role.removefromuser", NameAr = "إزالة دور من مستخدم", NameEn = "Remove Role From User" },
+
+    // User
+    new Permission { NameLogical = "user.createuser", NameAr = "إنشاء مستخدم", NameEn = "Create User" },
+    new Permission { NameLogical = "user.updateuser", NameAr = "تحديث مستخدم", NameEn = "Update User" },
+    new Permission { NameLogical = "user.deleteuser", NameAr = "حذف مستخدم", NameEn = "Delete User" },
+    new Permission { NameLogical = "user.getallusers", NameAr = "عرض كل المستخدمين", NameEn = "Get All Users" },
+    new Permission { NameLogical = "user.getuserbyid", NameAr = "عرض مستخدم معين", NameEn = "Get User By Id" }
+ };
+
+
+            var existingPermissions = db.Permissions.ToList();
+
+            // Update existing ones (if translation changed)
+            foreach (var perm in existingPermissions)
             {
-                    // LogIn
-                    "login.isloggedin",
-                    "login.login",
-                    "login.googlelogin",
-                    "login.refresh-token",
-                    "login.logout",
+                var newPerm = newpermissions.FirstOrDefault(p => p.NameLogical == perm.NameLogical);
+                if (newPerm != null)
+                {
+                    bool changed = false;
 
-                    // OTP
-                    "otp.generate",
-                    "otp.verify",
-                    "otp.changepassword",
-                    "otp.useotp",
+                    if (perm.NameAr != newPerm.NameAr)
+                    {
+                        perm.NameAr = newPerm.NameAr;
+                        changed = true;
+                    }
 
-                    // Permission
-                    "permission.getall",
-                    "permission.getbyid",
-                    "permission.create",
-                    "permission.update",
-                    "permission.delete",
-                    "permission.assign",
-                    "permission.getpermissionsbyrole",
+                    if (perm.NameEn != newPerm.NameEn)
+                    {
+                        perm.NameEn = newPerm.NameEn;
+                        changed = true;
+                    }
 
-                    // Role
-                    "role.getall",
-                    "role.getbyid",
-                    "role.assignrolestouser",
-                    "role.create",
-                    "role.delete",
-                    "role.assigntouser",
-                    "role.removefromuser",
+                    if (changed)
+                        db.Permissions.Update(perm);
+                }
+            }
 
-                    // User
-                    "user.createuser",
-                    "user.updateuser",
-                    "user.deleteuser"
-             };
-
-
-            var existing = db.Permissions.Select(p => p.Name).ToList();
-            var toAdd = permissions.Except(existing).Select(name => new Permission { Name = name }).ToList();
+            // Add missing ones
+            var toAdd = newpermissions
+                .Where(p => !existingPermissions.Any(e => e.NameLogical == p.NameLogical))
+                .ToList();
 
             if (toAdd.Any())
             {
                 db.Permissions.AddRange(toAdd);
-                db.SaveChanges();
-                Console.WriteLine($"Added {toAdd.Count} new permissions.");
+                Console.WriteLine($"✅ Added {toAdd.Count} new permissions.");
             }
-            else
-            {
-                Console.WriteLine("No new permissions to add.");
-            }
-            var roles = new List<AppRole>() { new AppRole { Name = "admin" }, new AppRole { Name = "norole" } };
+
+            db.SaveChanges();
+            Console.WriteLine("✅ Permissions sync completed.");
+            var roles = new List<AppRole>()
+                        {
+                            new AppRole
+                            {
+                                Name = "admin",
+                                NameAr = "مدير النظام",
+                                NameEn = "Administrator"
+                            },
+                            new AppRole
+                            {
+                                Name = "norole",
+                                NameAr = "بدون صلاحيات",
+                                NameEn = "No Role"
+                            }
+                        };
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role.Name))
@@ -122,7 +167,7 @@ internal class Migrator
             var user = await userManager.FindByEmailAsync("admin@admin.com");
             if (user == null)
             {
-                var createduser = await userManager.CreateAsync(newuser, "Asd1236@");
+                var createduser = await userManager.CreateAsync(newuser, "P@ssw0rd");
                 await userManager.AddToRoleAsync(newuser, "admin");
                 await userManager.ConfirmEmailAsync(newuser, await userManager.GenerateEmailConfirmationTokenAsync(newuser));
                 Console.WriteLine("user admin created and added to admin role.");

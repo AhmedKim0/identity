@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 using System.Linq.Expressions;
+using System.Security.AccessControl;
 using System.Security.Claims;
 
 namespace Identity.DAL
@@ -33,39 +35,43 @@ namespace Identity.DAL
         public DbSet<IdentityUserRole<int>> UserRoles { get; set; }
 
 
-        private int? GetCurrentUserId()
+        private int GetCurrentUserId()
         {
             var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return string.IsNullOrEmpty(userId) ? null : int.Parse(userId);
+            return string.IsNullOrEmpty(userId) ? 0 : int.Parse(userId);
         }
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var now = DateTime.UtcNow;
             var currentUserId = GetCurrentUserId();
+            var auditableEntries = ChangeTracker.Entries<AuditableEntity>().Cast<EntityEntry>();
+            var roleEntries = ChangeTracker.Entries<AppRole>().Cast<EntityEntry>();
 
-            foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
+            var allEntries = auditableEntries.Concat(roleEntries);
+
+            foreach (var entry in ChangeTracker.Entries<IAuditableEntity>())
             {
-                if (entry.State == EntityState.Added)
+                var entity = entry.Entity;
+                switch (entry.State)
                 {
-                    entry.Entity.CreatedAtUtc = now;
-                    entry.Entity.CreatedBy = currentUserId;
+                    case EntityState.Added:
+                        entity.CreatedAtUtc = DateTime.UtcNow;
+                        entity.CreatedBy = currentUserId;
+                        break;
 
-                }
-                else if (entry.State == EntityState.Modified)
-                {
+                    case EntityState.Modified:
+                        entity.UpdatedAtUtc = DateTime.UtcNow;
+                        entity.UpdatedBy = currentUserId;
+                        break;
 
-                    entry.Entity.UpdatedAtUtc = now;
-                    entry.Entity.UpdatedBy = currentUserId;
+                    case EntityState.Deleted:
+                        if (entry.Entity is not IHardDelete)
+                        {
+                            entity.IsDeleted = true;
+                            entry.State = EntityState.Modified;
+                        }
+                        break;
                 }
-                else if (entry.State == EntityState.Deleted)
-                {
-                    if (entry.Entity is not IHardDelete)
-                    {
-                        entry.Entity.IsDeleted = true;
-                        entry.State = EntityState.Modified;
-                    }
-                }
-
             }
             return await base.SaveChangesAsync(cancellationToken);
 
@@ -77,7 +83,7 @@ namespace Identity.DAL
             // Apply IsDeleted filter to all entities inheriting BaseEntity
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
-                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                if (typeof(IBaseEntity).IsAssignableFrom(entityType.ClrType))
                 {
                     var parameter = Expression.Parameter(entityType.ClrType, "e");
                     var propertyMethod = typeof(EF).GetMethod("Property")!

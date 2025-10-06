@@ -46,7 +46,7 @@ public class TokenService: ITokenService
             var permissions = await _unitOfWork.RolePermissions.Dbset()
                 .Where(rp => rp.RoleId == role.Id && rp.Permission != null)
                 .Include(rp => rp.Permission)
-                .Select(rp => rp.Permission.Name)
+                .Select(rp => rp.Permission.NameLogical)
                 .ToListAsync();
 
             permissionNames.AddRange(permissions);

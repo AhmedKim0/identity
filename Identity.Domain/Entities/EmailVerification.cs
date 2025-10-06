@@ -2,7 +2,7 @@
 
 namespace Identity.Domain.Entities
 {
-    public class EmailVerification : BaseEntity
+    public class EmailVerification : BaseEntity, IBaseEntity
     {
         public int UserId { get; set; }
 

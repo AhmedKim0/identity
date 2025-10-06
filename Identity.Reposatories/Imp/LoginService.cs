@@ -46,12 +46,11 @@ namespace Identity.Application.Imp
             {
                 if(_jwtSettings.SingleSession == false)
                     return Response<bool>.Failure(new Error("This feature is Turned Off"));
-                model.LoginKey = SharedFunctions.NormalizeEmail(model.LoginKey);
 
                 var user = model.loginBy switch
                 {
                     LoginBy.UserName => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey),
-                    LoginBy.Email => await _unitOfWork._UserManager.FindByEmailAsync(model.LoginKey),
+                    LoginBy.Email => await _unitOfWork._UserManager.FindByEmailAsync(SharedFunctions.NormalizeEmail(model.LoginKey)),
                     LoginBy.Phone => await _unitOfWork._UserManager.Users
                                               .FirstOrDefaultAsync(u => u.PhoneNumber == model.LoginKey),
                     _ => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey)
@@ -76,24 +75,25 @@ namespace Identity.Application.Imp
             //await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
             {
-                model.LoginKey = SharedFunctions.NormalizeEmail(model.LoginKey);
+                var phone =await _unitOfWork._UserManager.Users
+                                              .FirstOrDefaultAsync(u => u.PhoneNumber == model.LoginKey);
 
                 var user = model.loginBy switch
                 {
                     LoginBy.UserName => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey),
-                    LoginBy.Email => await _unitOfWork._UserManager.FindByEmailAsync(model.LoginKey),
+                    LoginBy.Email => await _unitOfWork._UserManager.FindByEmailAsync(SharedFunctions.NormalizeEmail(model.LoginKey)),
                     LoginBy.Phone => await _unitOfWork._UserManager.Users
                                               .FirstOrDefaultAsync(u => u.PhoneNumber == model.LoginKey),
                     _ => await _unitOfWork._UserManager.FindByNameAsync(model.LoginKey)
                 }; 
                 if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<TokenDTO>.Failure(new Error("Invalid username or password"));
-                if (_jwtSettings.ConfirmEmail && !await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
+                if (_jwtSettings.ConfirmEmail && await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
                 {
                     if (!SharedFunctions.CanSendMail(user))
-                    return Response<TokenDTO>.Failure(new Error("Please Confirm your Email Later"));
+                        return Response<TokenDTO>.Failure(new Error("Please Confirm your Email Later"));
 
-                   await _oTPService.GenerateEmailVerificationTokenAsync(user.Email);
+                    await _oTPService.GenerateEmailVerificationTokenAsync(user.Email);
                     return Response<TokenDTO>.Failure(new Error("Please Confirm your Email"));
                 }
                 // i need sms provider!!!
@@ -157,7 +157,7 @@ namespace Identity.Application.Imp
             }
             catch (Exception)
             {
-                await _unitOfWork.RollbackTransactionAsync();
+                //await _unitOfWork.RollbackTransactionAsync();
                 return Response<TokenDTO>.Failure(new Error("An error occurred while processing your request."));
             }
         }

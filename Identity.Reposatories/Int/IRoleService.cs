@@ -12,12 +12,11 @@ namespace Identity.Application.Int
     {
         Task<Response<List<AppRole>>> GetAllAsync();
         Task<Response<AppRole?>> GetByIdAsync(int id);
-        Task<Response<RoleDTO>> CreateAsync(string roleName);
         Task<Response<RoleDTO>> DeleteAsync(int id);
-        Task<Response<bool>> AssignRolesToUserAsync(int UserId, List<int> rolesIds);
-
         Task<Response<AssginRoleToUserDTO>> AssignRoleToUserAsync(int userId, string roleName);
         Task<Response<AssginRoleToUserDTO>> RemoveRoleFromUserAsync(int userId, string roleName);
+        Task<Response<bool>> AssignRolesToUserAsync(int UserId, List<string> newRolesName);
+        Task<Response<RoleDTO>> CreateAsync(CreateRoleDTO dTO);
     }
 
 }

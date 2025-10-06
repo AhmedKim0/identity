@@ -7,12 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 using Identity.Application.Imp;
 using Identity.Domain.Enums;
 using static System.Net.WebRequestMethods;
+using MCDRServices.Requests.Api.Mobile.Controllers;
 
 namespace Identity.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class OTPController : ControllerBase
+    public class OTPController : BaseController
     {
         private readonly IOTPService _otpService;
 
@@ -23,11 +24,11 @@ namespace Identity.API.Controllers
         }
 
         [HttpGet("Generate")]
-        public async Task<IActionResult> Generate( string email,  OtpPurpose otp)
+        public async Task<IActionResult> Generate( string email,  OtpPurpose otpPurpose)
         {
             try
             {
-                var result = await _otpService.GenerateOtp(email,  otp);
+                var result = await _otpService.GenerateOtp(email, otpPurpose);
                 if (!result.Success)
                     return BadRequest(result);
 

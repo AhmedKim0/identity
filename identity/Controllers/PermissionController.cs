@@ -2,6 +2,8 @@
 using Identity.Application.DTO.PermissionDTOs;
 using Identity.Application.Int;
 
+using MCDRServices.Requests.Api.Mobile.Controllers;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +11,7 @@ namespace Identity.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class PermissionController : ControllerBase
+    public class PermissionController : BaseController
     {
         private readonly IPermissionService _service;
 
@@ -60,12 +62,12 @@ namespace Identity.API.Controllers
 
         [Authorize]
         [HttpPost("Create")]
-        public async Task<IActionResult> Create([FromBody] string name)
+        public async Task<IActionResult> Create([FromBody] CreatePermissionDTO dTO)
 
         {
             try
             {
-                var result = await _service.CreateAsync(name);
+                var result = await _service.CreateAsync(dTO);
 
                 if (!result.Success)
                     return BadRequest(result);

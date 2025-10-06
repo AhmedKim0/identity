@@ -2,13 +2,17 @@
 using Identity.Application.DTO.UserDTOs;
 using Identity.Application.Int;
 
+using MCDRServices.Requests.Api.Mobile.Controllers;
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Identity.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : ControllerBase
+    [Authorize]
+    public class UserController : BaseController
     {
         private readonly IUserServices _userServices;
 

@@ -26,7 +26,9 @@ namespace Identity.Application.Imp
                 {
                     Id = u.Id,
                     Email = u.Email,
-                    UserName = u.UserName
+                    UserName = u.UserName,
+                    PhoneNumber = u.PhoneNumber
+
                 })
                 .ToListAsync();
 
@@ -39,7 +41,8 @@ namespace Identity.Application.Imp
                 {
                     Id = u.Id,
                     Email = u.Email,
-                    UserName = u.UserName
+                    UserName = u.UserName,
+                    PhoneNumber=u.PhoneNumber
                 })
                 .FirstOrDefaultAsync();
 
@@ -152,6 +155,9 @@ namespace Identity.Application.Imp
             {
                 return Response<string>.Failure(new Error("User not found"));
             }
+            user.IsDeleted = true;
+            user.UpdatedBy = null;
+            user.UpdatedAtUtc = DateTime.UtcNow;
 
             var result = await _unitOfWork._UserManager.DeleteAsync(user);
             if (!result.Succeeded)

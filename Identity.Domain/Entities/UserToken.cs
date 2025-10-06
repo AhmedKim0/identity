@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Identity.Domain.Entities
 {
-    public class UserToken : BaseEntity,IHardDelete
+    public class UserToken : BaseEntity,IHardDelete ,IBaseEntity
     {
         public int UserId { get; set; } 
         public string AccessToken { get; set; }  

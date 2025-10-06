@@ -13,7 +13,9 @@ namespace Identity.Domain.IReposatory
         Task<List<TEntity>> GetAllAsync();
         Task AddAsync(TEntity entity);
         Task UpdateAsync(TEntity entity);
-        Task DeleteAsync(TEntity entity); 
+        Task DeleteAsync(TEntity entity);
+        Task DeleteRangeAsync(IEnumerable<TEntity> entities);
+        Task DeleteRangeAsync(IEnumerable<int> ids);
         Task<int> SaveChangesAsync();
         DbSet<TEntity> Dbset();
         Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate);

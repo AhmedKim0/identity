@@ -15,8 +15,7 @@ namespace Identity.Application.Imp
     public class RoleService : IRoleService
     {
 
-        private readonly IUnitOfWork _unitOfWork ;
-        private readonly AppDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
 
         public RoleService(RoleManager<AppRole> roleManager, UserManager<AppUser> userManager, IUnitOfWork unitOfWork)
         {
@@ -25,7 +24,7 @@ namespace Identity.Application.Imp
 
         public async Task<Response<List<AppRole>>> GetAllAsync()
         {
-            return Response<List<AppRole>>.SuccessResponse ( await _unitOfWork._RoleManager.Roles.ToListAsync());
+            return Response<List<AppRole>>.SuccessResponse(await _unitOfWork._RoleManager.Roles.ToListAsync());
 
 
 
@@ -36,37 +35,48 @@ namespace Identity.Application.Imp
             return Response<AppRole>.SuccessResponse(await _unitOfWork._RoleManager.Roles.FirstOrDefaultAsync(r => r.Id == id));
         }
 
-        public async Task<Response<RoleDTO>> CreateAsync(string roleName)
+        public async Task<Response<RoleDTO>> CreateAsync(CreateRoleDTO dTO)
         {
 
 
-                if (await _unitOfWork._RoleManager.RoleExistsAsync(roleName))
-                    return Response<RoleDTO>.Failure(new Error("Role already exists"));
+            if (await _unitOfWork._RoleManager.RoleExistsAsync(dTO.Name))
+                return Response<RoleDTO>.Failure(new Error("Role already exists"));
 
-                var role = new AppRole { Name = roleName };
-                var addedrole = await _unitOfWork._RoleManager.CreateAsync(role);
-                if (!addedrole.Succeeded)
-                {
-                    var errors = addedrole.Errors.Select(e => new Error(
-                    
-                         e.Description,
-                        e.Code
-                    )).ToList();
-                    return Response<RoleDTO>.Failure(errors);
-                }
+            var role = new AppRole
+            {
+                Name = dTO.Name,
+                NameAr = dTO.NameAr,
+                NameEn = dTO.NameEn
+            };
+            var addedrole = await _unitOfWork._RoleManager.CreateAsync(role);
+            if (!addedrole.Succeeded)
+            {
+                var errors = addedrole.Errors.Select(e => new Error(
 
-                return Response<RoleDTO>.SuccessResponse(new RoleDTO {Id=role.Id,Name=role.Name });
-            
+                     e.Description,
+                    e.Code
+                )).ToList();
+                return Response<RoleDTO>.Failure(errors);
+            }
+
+            return Response<RoleDTO>.SuccessResponse(new RoleDTO { 
+                Id = role.Id, 
+                Name = role.Name ,
+                NameEn=role.NameEn,
+                NameAr=role.NameAr 
+                });
+
 
 
         }
 
         public async Task<Response<RoleDTO>> DeleteAsync(int id)
         {
-            var role = await GetByIdAsync(id);
-            if (role.Data == null)
+            var role = await _unitOfWork._RoleManager.Roles.Where(x=>x.Id==id).FirstOrDefaultAsync();
+            if (role == null)
                 return Response<RoleDTO>.Failure(new Error("Role not found"));
-            var deletedrole=await _unitOfWork._RoleManager.DeleteAsync(role.Data);
+
+            var deletedrole = await _unitOfWork._RoleManager.DeleteAsync(role);
             if (!deletedrole.Succeeded)
             {
                 var errors = deletedrole.Errors.Select(e => new Error(
@@ -76,34 +86,37 @@ namespace Identity.Application.Imp
                 )).ToList();
                 return Response<RoleDTO>.Failure(errors);
             }
-            return Response<RoleDTO>.SuccessResponse(new RoleDTO { Id = role.Data.Id, Name = role.Data.Name });
-
+            return Response<RoleDTO>.SuccessResponse(new RoleDTO
+            {
+                Id = role.Id,
+                Name = role.Name,
+                NameEn = role.NameEn,
+                NameAr = role.NameAr
+            });
         }
-        public async Task<Response<bool>> AssignRolesToUserAsync(int UserId, List<int> rolesIds)
+        public async Task<Response<bool>> AssignRolesToUserAsync(int UserId, List<string> newRolesName)
         {
             await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             try
             {
-                
+                newRolesName = newRolesName.Distinct().ToList();
                 var user = await _unitOfWork._UserManager.FindByIdAsync(UserId.ToString());
-                if (user == null || user.Email== "admin@admin.com")
+                if (user == null || user.Email == "admin@admin.com")
                 { return Response<bool>.Failure(new Error("user not found")); }
 
-                var Listroles =await _unitOfWork._RoleManager.Roles
-                    .Where(r => rolesIds.Contains(r.Id))
+                var allRoles = await _unitOfWork._RoleManager.Roles.Select(x => x.Name)
                     .ToListAsync();
-                var ListrolesIds= Listroles.Select(r => r.Id).ToList();
-                var isAllRoleExist = rolesIds.All(id => ListrolesIds.Contains(id));
-                if (!isAllRoleExist)
+                if (!newRolesName.All(name => allRoles.Contains(name)))   //isAllRoleExist
                 { return Response<bool>.Failure(new Error("one Role or all not exist")); }
 
 
 
-                var userRoles = _context.UserRoles?.Where(ur => ur.UserId == UserId)?.ToList();
-                _context.UserRoles.RemoveRange(userRoles);
+                var existedUserRoles = await _unitOfWork._UserManager.GetRolesAsync(user);
+                var onlyNewRoles = newRolesName.Except(existedUserRoles).ToList();
+                var rolesToRemove = existedUserRoles.Except(newRolesName).ToList();
+                await _unitOfWork._UserManager.RemoveFromRolesAsync(user, rolesToRemove);
 
-                var roleNames = Listroles.Select(r => r.Name).ToList();
-                await _unitOfWork._UserManager.AddToRolesAsync(user, roleNames);
+                await _unitOfWork._UserManager.AddToRolesAsync(user, onlyNewRoles);
                 await _unitOfWork.CommitTransactionAsync();
                 return Response<bool>.SuccessResponse(true);
             }
@@ -124,7 +137,7 @@ namespace Identity.Application.Imp
 
             if (!await _unitOfWork._RoleManager.RoleExistsAsync(roleName))
                 return Response<AssginRoleToUserDTO>.Failure(new Error("Role not found."));
-           var addedRoleResponse= await _unitOfWork._UserManager.AddToRoleAsync(user, roleName);
+            var addedRoleResponse = await _unitOfWork._UserManager.AddToRoleAsync(user, roleName);
             if (!addedRoleResponse.Succeeded)
             {
                 var errors = addedRoleResponse.Errors.Select(e => new Error(
@@ -160,5 +173,5 @@ namespace Identity.Application.Imp
 
             return Response<AssginRoleToUserDTO>.SuccessResponse(new AssginRoleToUserDTO { userName = user.UserName, roleName = roleName });
         }
-}
+    }
 }

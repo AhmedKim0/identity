@@ -11,7 +11,7 @@ using Identity.Domain.Enums;
 
 namespace Identity.Domain.Entities
 {
-    public class OTPCode : BaseEntity
+    public class OTPCode : BaseEntity, IBaseEntity
     {
         public int EmailVerificationId { get; set; }
         public string Code { get; set; }

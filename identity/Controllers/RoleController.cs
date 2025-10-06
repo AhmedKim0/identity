@@ -2,13 +2,15 @@
 using Identity.Application.DTO.RoleDTOs;
 using Identity.Application.Int;
 
+using MCDRServices.Requests.Api.Mobile.Controllers;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace Identity.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class RoleController : ControllerBase
+    public class RoleController : BaseController
     {
         private readonly IRoleService _roleService;
 
@@ -49,7 +51,7 @@ namespace Identity.API.Controllers
         {
             try
             {
-                var role = await _roleService.AssignRolesToUserAsync(dTO.userId, dTO.ids);
+                var role = await _roleService.AssignRolesToUserAsync(dTO.userId, dTO.RoleName);
                 if (role == null) return NotFound();
                 return Ok(role);
             }
@@ -61,11 +63,11 @@ namespace Identity.API.Controllers
         [Authorize]
 
         [HttpPost("Create")]
-        public async Task<IActionResult> Create([FromBody] string roleName)
+        public async Task<IActionResult> Create([FromBody] CreateRoleDTO dTO)
         {
             try
             {
-                var result = await _roleService.CreateAsync(roleName);
+                var result = await _roleService.CreateAsync(dTO);
                 if (!result.Success)
                     return BadRequest(result);
 
@@ -79,7 +81,7 @@ namespace Identity.API.Controllers
         [Authorize]
 
         [HttpDelete("Delete")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id )
         {
             try
             {
