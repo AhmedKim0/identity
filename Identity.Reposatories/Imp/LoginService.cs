@@ -75,8 +75,7 @@ namespace Identity.Application.Imp
             //await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
             {
-                var phone =await _unitOfWork._UserManager.Users
-                                              .FirstOrDefaultAsync(u => u.PhoneNumber == model.LoginKey);
+
 
                 var user = model.loginBy switch
                 {
@@ -88,7 +87,7 @@ namespace Identity.Application.Imp
                 }; 
                 if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<TokenDTO>.Failure(new Error("Invalid username or password"));
-                if (_jwtSettings.ConfirmEmail && await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
+                if (_jwtSettings.ConfirmEmail && ! await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
                 {
                     if (!SharedFunctions.CanSendMail(user))
                         return Response<TokenDTO>.Failure(new Error("Please Confirm your Email Later"));
@@ -158,7 +157,7 @@ namespace Identity.Application.Imp
             catch (Exception)
             {
                 //await _unitOfWork.RollbackTransactionAsync();
-                return Response<TokenDTO>.Failure(new Error("An error occurred while processing your request."));
+                throw;
             }
         }
 
@@ -286,6 +285,9 @@ namespace Identity.Application.Imp
             {
                 ValidateAudience = false,
                 ValidateIssuer = true,
+                ValidIssuers = _jwtSettings.Issuers,
+                
+
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret)),
                 ValidateLifetime = false // Accept expired token

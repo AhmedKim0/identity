@@ -57,6 +57,7 @@ namespace Identity.Application.Imp
             {
                 user.VerificationAttempts = 0;
                 user.LastVerificationSentAt = now;  // ✅ set new date when resetting
+
             }
 
             // Limit: max 5 per day

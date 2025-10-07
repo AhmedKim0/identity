@@ -288,12 +288,14 @@ namespace Identity.Application.Imp
                 var user = await _unitOfWork._UserManager.FindByEmailAsync(email);
 
                 if (user == null)
-                    return Response<bool>.Failure(new Error("Invalid email format."));
+                    return Response<bool>.Failure(new Error("email not found"));
                 if (!SharedFunctions.CanSendMail(user))
                     return Response<bool>.SuccessResponse(false);
+                user.VerificationAttempts++;
+               await _unitOfWork._UserManager.UpdateAsync(user);
                 var token = await _unitOfWork._UserManager.GenerateEmailConfirmationTokenAsync(user);
                 var encodedToken = System.Web.HttpUtility.UrlEncode(token);
-                var confirmationLink = $"https://localhost:7056/api/OTP/confirm-email?userId={user.Id}&token={encodedToken}";
+                var confirmationLink = $"{_configuration["BaseURl"]}api/OTP/confirmemail?userId={user.Id}&token={encodedToken}";
                 var sendmail = await _emailService.GetEmailStructure(EmailStructure.Token, user.Email);
                 var placeholders = new Dictionary<string, string>
                 {
