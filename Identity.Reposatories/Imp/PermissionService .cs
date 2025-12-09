@@ -101,13 +101,15 @@ namespace Identity.Application.Imp
                 var role = await _unitOfWork._RoleManager.FindByIdAsync(roleId.ToString());
                 if (role == null)
                 { return Response<bool>.Failure(new Error("Role not found")); }
-                var existingPermissionIds = await _unitOfWork.Permissions
-                    .Dbset()
-                    .Select(p => p.Id)
+                var existingPermissionIds = await _unitOfWork.RolePermissions
+                    .Dbset().Where(rp=>rp.RoleId==roleId)
+                    .Select(p => p.PermissionId)
                     .ToListAsync();
 
-                var isAllPermissionExist = NewPermissionIds.All(id => existingPermissionIds.Contains(id));
-                if (!isAllPermissionExist)
+                var countexist = await _unitOfWork.Permissions
+                    .Dbset()
+                    .CountAsync(x => NewPermissionIds.Contains(x.Id));
+                if (!(countexist == NewPermissionIds.Count()))
                 { return Response<bool>.Failure(new Error("one permission or all not exist")); }
                var rolesToAdd = NewPermissionIds.Except(existingPermissionIds).ToList();
                 var rolesToRemove = existingPermissionIds.Except(NewPermissionIds).ToList();

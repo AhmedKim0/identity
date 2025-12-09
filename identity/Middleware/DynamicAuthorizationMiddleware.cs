@@ -3,6 +3,7 @@ using Identity.Application.Int;
 
 using Microsoft.AspNetCore.Authorization;
 
+using System.Linq;
 using System.Security.Claims;
 
 namespace Identity.API.Middleware
@@ -10,10 +11,12 @@ namespace Identity.API.Middleware
     public class DynamicAuthorizationMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly IInMemory _inMemory;
 
-        public DynamicAuthorizationMiddleware(RequestDelegate next)
+        public DynamicAuthorizationMiddleware(RequestDelegate next , IInMemory inMemory)
         {
             _next = next;
+            _inMemory = inMemory;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -35,9 +38,9 @@ namespace Identity.API.Middleware
                 .Select(c => c.Value.ToLower())
                 .ToList();
             var requiredPermission = GetRequiredPermission(context);
+            var permissionFromCach = await _inMemory.GetPermissionByNameAsync(requiredPermission);
 
-
-                if (permissions.Contains(requiredPermission))
+                if (permissions.Contains(permissionFromCach.Id.ToString()))
                 {
                     await _next(context);
                     return;

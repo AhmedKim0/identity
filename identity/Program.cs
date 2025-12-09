@@ -15,6 +15,7 @@ using Identity.Infrastructure.UOW;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -64,6 +65,7 @@ internal class Program
         builder.Services.AddScoped<IEmailBodyRepository, EmailBodyRepository>();
         builder.Services.AddScoped<IUserTokenRepository, UserTokenRepository>();
 
+
         #endregion
 
         #region Services
@@ -71,12 +73,13 @@ internal class Program
         builder.Services.AddScoped<IUserServices, UsersServices>();
         builder.Services.AddScoped<ITokenService,TokenService>();
         builder.Services.AddScoped<IPermissionService, PermissionService>();
-        builder.Services.AddMemoryCache();
         builder.Services.AddScoped<IOTPService, OTPService>();
         builder.Services.AddScoped<IEmailService, EmailService>();
         builder.Services.AddScoped<ILoginService, LoginService>();
         builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
         builder.Services.AddHttpClient();
+        builder.Services.AddMemoryCache(); // singleton cache
+        builder.Services.AddSingleton<IInMemory, InMemory>();
 
         #endregion
 

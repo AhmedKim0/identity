@@ -21,6 +21,7 @@ namespace Identity.Domain.Entities
         public bool IsDeleted { get; set; } = false;
         public int VerificationAttempts { get; set; }
         public DateTime? LastVerificationSentAt { get; set; }
+        //public Guid? RegistrationId { get; set; }
 
 
 

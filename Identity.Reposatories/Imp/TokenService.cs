@@ -35,7 +35,8 @@ public class TokenService: ITokenService
         var roles = await _unitOfWork._UserManager.GetRolesAsync(user);
         var roleclaim = roles.Select(r=>new Claim(ClaimTypes.Role,r));
         authClaims.AddRange(roleclaim);
-        var permissionNames = new List<string>();
+        var permissionIds = new List<string>();
+
 
         foreach (var roleName in roles)
         {
@@ -46,14 +47,14 @@ public class TokenService: ITokenService
             var permissions = await _unitOfWork.RolePermissions.Dbset()
                 .Where(rp => rp.RoleId == role.Id && rp.Permission != null)
                 .Include(rp => rp.Permission)
-                .Select(rp => rp.Permission.NameLogical)
+                .Select(rp => rp.Permission.Id.ToString())
                 .ToListAsync();
 
-            permissionNames.AddRange(permissions);
+            permissionIds.AddRange(permissions);
         }
 
         //Add to Claims
-       var claims = permissionNames
+       var claims = permissionIds
            .Distinct()
            .Select(p => new Claim("Permission", p))
            .ToList();

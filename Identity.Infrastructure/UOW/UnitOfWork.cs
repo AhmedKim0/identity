@@ -71,7 +71,7 @@ namespace Identity.Infrastructure.UOW
 
             // This ensures both repository changes and UserManager changes are saved
             await _dbContext.SaveChangesAsync();
-
+            
             await _transaction.CommitAsync();
             await _transaction.DisposeAsync();
             _transaction = null;
