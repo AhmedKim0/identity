@@ -8,147 +8,231 @@ using Microsoft.EntityFrameworkCore;
 
 using System.Data;
 
-namespace Identity.Application.Imp
+namespace Identity.Application.Imp;
+
+public class PermissionService : IPermissionService
 {
-    public class PermissionService : IPermissionService
+    private readonly IUnitOfWork _unitOfWork;
+
+    public PermissionService(IUnitOfWork unitOfWork)
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(10);
+        _unitOfWork = unitOfWork
+            ?? throw new ArgumentNullException(nameof(unitOfWork));
+    }
 
-        public PermissionService(IUnitOfWork unitOfWork)
-        {
-            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
-
-        }
-
-        public async Task<Response<List<PermissionDTO>>> GetAllAsync()
-        {
-            return Response<List<PermissionDTO>>.SuccessResponse(await _unitOfWork.Permissions.Dbset()
-                .Select(p => new PermissionDTO
-                {
-                    Id = p.Id,
-                    NameLogical = p.NameLogical,
-                    NameAr = p.NameAr,
-                    NameEn = p.NameEn,
-                }).ToListAsync());
-        }
-
-        public async Task<Response<PermissionDTO?>> GetByIdAsync(int id)
-        {
-            var permission = await _unitOfWork.Permissions.FirstOrDefaultAsync(x=>x.Id==id);
-            return Response<PermissionDTO?>.SuccessResponse(new PermissionDTO
+    public async Task<Response<List<PermissionDTO>>> GetAllAsync()
+    {
+        var permissions = await _unitOfWork.Permissions
+            .Dbset()
+            .Select(p => new PermissionDTO
             {
-                Id = permission?.Id,
-                NameLogical = permission?.NameLogical,
-                NameAr = permission?.NameAr,
-                NameEn = permission?.NameEn,
+                Id = p.Id,
+                NameLogical = p.NameLogical,
+                NameAr = p.NameAr,
+                NameEn = p.NameEn
+            })
+            .ToListAsync();
 
-            });
+        return Response<List<PermissionDTO>>
+            .SuccessResponse(permissions);
+    }
+
+    public async Task<Response<PermissionDTO?>> GetByIdAsync(int id)
+    {
+        var permission = await _unitOfWork.Permissions
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if(permission == null)
+        {
+            return Response<PermissionDTO?>.Failure(
+                new Error("Permission not found"));
         }
 
-        public async Task<Response<PermissionDTO>> CreateAsync(CreatePermissionDTO dTO)
+        var dto = new PermissionDTO
         {
-            var permission = new Permission
+            Id = permission.Id,
+            NameLogical = permission.NameLogical,
+            NameAr = permission.NameAr,
+            NameEn = permission.NameEn
+        };
+
+        return Response<PermissionDTO?>
+            .SuccessResponse(dto);
+    }
+
+    public async Task<Response<PermissionDTO>> CreateAsync(
+        CreatePermissionDTO dto)
+    {
+        var permission = new Permission(
+            dto.NameLogical,
+            dto.NameAr,
+            dto.NameEn);
+
+        await _unitOfWork.Permissions.AddAsync(permission);
+
+        await _unitOfWork.Permissions.SaveChangesAsync();
+
+        var result = new PermissionDTO
+        {
+            Id = permission.Id,
+            NameLogical = permission.NameLogical,
+            NameAr = permission.NameAr,
+            NameEn = permission.NameEn
+        };
+
+        return Response<PermissionDTO>
+            .SuccessResponse(result);
+    }
+
+    public async Task<Response<PermissionDTO?>> UpdateAsync(
+        PermissionDTO dto)
+    {
+        var permission = await _unitOfWork.Permissions
+            .FirstOrDefaultAsync(x => x.Id == dto.Id);
+
+        if(permission == null)
+        {
+            return Response<PermissionDTO?>.Failure(
+                new Error("Permission not found"));
+        }
+
+        permission.Update(
+            dto.NameLogical,
+            dto.NameAr,
+            dto.NameEn);
+
+        await _unitOfWork.Permissions.UpdateAsync(permission);
+
+        await _unitOfWork.Permissions.SaveChangesAsync();
+
+        var result = new PermissionDTO
+        {
+            Id = permission.Id,
+            NameLogical = permission.NameLogical,
+            NameAr = permission.NameAr,
+            NameEn = permission.NameEn
+        };
+
+        return Response<PermissionDTO?>
+            .SuccessResponse(result);
+    }
+
+    public async Task<Response<bool>> DeleteAsync(int id)
+    {
+        var permission = await _unitOfWork.Permissions
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if(permission == null)
+        {
+            return Response<bool>.Failure(
+                new Error("Permission not found"));
+        }
+
+        permission.SoftDelete();
+
+        await _unitOfWork.Permissions.SaveChangesAsync();
+
+        return Response<bool>.SuccessResponse(true);
+    }
+
+    public async Task<Response<bool>> AssignPermissionsToRoleAsync(
+        int roleId,
+        List<int> newPermissionIds)
+    {
+        await _unitOfWork.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted);
+
+        try
+        {
+            var permissionIds = newPermissionIds
+                .Distinct()
+                .ToList();
+
+            var role = await _unitOfWork._RoleManager
+                .FindByIdAsync(roleId.ToString());
+
+            if(role == null)
             {
-                NameLogical = dTO.NameLogical,
-                NameAr = dTO.NameAr,
-                NameEn = dTO.NameEn,
-            };
-            await _unitOfWork.Permissions.AddAsync(permission);
-            await _unitOfWork.Permissions.SaveChangesAsync();
-            var dto = new PermissionDTO
+                await _unitOfWork.RollbackTransactionAsync();
+
+                return Response<bool>.Failure(
+                    new Error("Role not found"));
+            }
+
+            var existingPermissionIds = await _unitOfWork.RolePermissions
+                .Dbset()
+                .Where(rp => rp.RoleId == roleId)
+                .Select(rp => rp.PermissionId)
+                .ToListAsync();
+
+            var existingPermissionIdSet =
+                existingPermissionIds.ToHashSet();
+
+            var validPermissionCount = await _unitOfWork.Permissions
+                .Dbset()
+                .CountAsync(p => permissionIds.Contains(p.Id));
+
+            if(validPermissionCount != permissionIds.Count)
             {
-                NameLogical = permission.NameLogical,
-                NameAr = permission.NameAr,
-                NameEn = permission.NameEn,
-                Id = permission.Id
-            };
-            return Response<PermissionDTO>.SuccessResponse(dto);
-        }
+                await _unitOfWork.RollbackTransactionAsync();
 
-        public async Task<Response<PermissionDTO?>> UpdateAsync(PermissionDTO dto)
-        {
-            var permission = await _unitOfWork.Permissions.FirstOrDefaultAsync(x => x.Id == dto.Id);
-            if (permission == null) return Response<PermissionDTO>.Failure(new Error("Permission not found"));
+                return Response<bool>.Failure(
+                    new Error("One or more permissions do not exist"));
+            }
 
-            permission.NameLogical = dto.NameLogical;
-            permission.NameAr = dto.NameAr;
-            permission.NameEn = dto.NameEn;
+            var permissionsToAdd = permissionIds
+                .Except(existingPermissionIdSet)
+                .ToList();
 
-            await _unitOfWork.Permissions.UpdateAsync(permission);
-            await _unitOfWork.Permissions.SaveChangesAsync();
+            var permissionsToRemove = existingPermissionIdSet
+                .Except(permissionIds)
+                .ToList();
 
-            if (permission == null) return Response<PermissionDTO>.Failure(new Error("Permission not found"));
-            return Response<PermissionDTO>.SuccessResponse( dto);
-        }
+            if(permissionsToRemove.Count > 0)
+            {
+                await _unitOfWork.RolePermissions
+                    .DeleteRangeAsync(permissionsToRemove);
+            }
 
-        public async Task<Response<bool>> DeleteAsync(int id)
-        {
-            var permission = await _unitOfWork.Permissions.FirstOrDefaultAsync(x => x.Id == id);
-            if (permission == null) return Response<bool>.Failure(new Error("Permission not found"));
-                
-           await  _unitOfWork.Permissions.DeleteAsync(permission);
-            await _unitOfWork.Permissions.SaveChangesAsync();
+            var newAssignments = permissionsToAdd
+                .Select(permissionId =>
+                    new RolePermission(roleId, permissionId))
+                .ToList();
+
+            if(newAssignments.Count > 0)
+            {
+                _unitOfWork.RolePermissions
+                    .Dbset()
+                    .AddRange(newAssignments);
+            }
+
+            await _unitOfWork.CommitTransactionAsync();
+
             return Response<bool>.SuccessResponse(true);
         }
-        // need to change here
-        public async Task<Response<bool>> AssignPermissionsToRoleAsync(int roleId, List<int> NewPermissionIds)
+        catch
         {
-            await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted);
-            try
-            {
-                NewPermissionIds= NewPermissionIds.Distinct().ToList();
-                var role = await _unitOfWork._RoleManager.FindByIdAsync(roleId.ToString());
-                if (role == null)
-                { return Response<bool>.Failure(new Error("Role not found")); }
-                var existingPermissionIds = await _unitOfWork.RolePermissions
-                    .Dbset().Where(rp=>rp.RoleId==roleId)
-                    .Select(p => p.PermissionId)
-                    .ToListAsync();
-
-                var countexist = await _unitOfWork.Permissions
-                    .Dbset()
-                    .CountAsync(x => NewPermissionIds.Contains(x.Id));
-                if (!(countexist == NewPermissionIds.Count()))
-                { return Response<bool>.Failure(new Error("one permission or all not exist")); }
-               var rolesToAdd = NewPermissionIds.Except(existingPermissionIds).ToList();
-                var rolesToRemove = existingPermissionIds.Except(NewPermissionIds).ToList();
-                await _unitOfWork.RolePermissions.DeleteRangeAsync(rolesToRemove);
-                
-                var newAssignments = rolesToAdd.Select(pid => new RolePermission
-                {
-                    RoleId = roleId,
-                    PermissionId = pid
-                });
-
-                _unitOfWork.RolePermissions.Dbset().AddRange(newAssignments);
-
-               await _unitOfWork.CommitTransactionAsync();
-                return Response<bool>.SuccessResponse(true);
-            }
-            catch (Exception ex)
-            {
-              await  _unitOfWork.RollbackTransactionAsync();
-
-                throw ex;
-            }
-
-        }
-
-        public async Task<Response<List<PermissionDTO>>> GetPermissionsByRoleAsync(int roleId)
-        {
-            return Response<List<PermissionDTO>>.SuccessResponse(await _unitOfWork.RolePermissions.Dbset()
-                .Where(rp => rp.RoleId == roleId)
-                .Include(rp => rp.Permission)
-                .Select(rp => new PermissionDTO
-                {
-                    Id = rp.Permission.Id,
-                    NameLogical = rp.Permission.NameLogical,
-                    NameAr = rp.Permission.NameAr,
-                    NameEn = rp.Permission.NameEn,
-
-                }).ToListAsync());
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
         }
     }
 
+    public async Task<Response<List<PermissionDTO>>> GetPermissionsByRoleAsync(
+        int roleId)
+    {
+        var permissions = await _unitOfWork.RolePermissions
+            .Dbset()
+            .Where(rp => rp.RoleId == roleId)
+            .Select(rp => new PermissionDTO
+            {
+                Id = rp.Permission.Id,
+                NameLogical = rp.Permission.NameLogical,
+                NameAr = rp.Permission.NameAr,
+                NameEn = rp.Permission.NameEn
+            })
+            .ToListAsync();
+
+        return Response<List<PermissionDTO>>
+            .SuccessResponse(permissions);
+    }
 }

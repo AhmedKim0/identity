@@ -48,25 +48,7 @@ namespace Identity.Application.Imp
 
             return $"{local}@{domain}";
         }
-        public  static bool CanSendMail(AppUser user)
-        {
-            var now = DateTime.UtcNow;
-
-            // Reset counter if it's a new day
-            if (user.LastVerificationSentAt == null || user.LastVerificationSentAt.Value.Date < now.Date)
-            {
-                user.VerificationAttempts = 0;
-                user.LastVerificationSentAt = now;  // ✅ set new date when resetting
-
-            }
-
-            // Limit: max 5 per day
-            if (user.VerificationAttempts >= 5)
-            {
-                return false;
-            }
-            return true;
-        }
+        
     }
 }
 

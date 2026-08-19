@@ -72,8 +72,7 @@ public class TokenService: ITokenService
         var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
         var refreshToken = Guid.NewGuid().ToString();
 
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays);
+        user.SetRefreshToken(refreshToken, DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)) ;
         await _unitOfWork._UserManager.UpdateAsync(user);
 
         return (accessToken, refreshToken);

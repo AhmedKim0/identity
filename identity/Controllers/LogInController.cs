@@ -13,11 +13,9 @@ namespace Identity.API.Controllers
     public class LogInController : BaseController
     {
         private readonly ILoginService _loginService;
-        private readonly IGoogleAuthService _googleAuthService;
-        public LogInController(ILoginService loginService ,IGoogleAuthService googleAuthService)
+        public LogInController(ILoginService loginService )
         {
             _loginService = loginService ?? throw new ArgumentNullException(nameof(loginService));
-            _googleAuthService=googleAuthService ?? throw new ArgumentNullException(nameof(googleAuthService));
         }
         [HttpPost("IsLoggedin")]
 
@@ -55,21 +53,7 @@ namespace Identity.API.Controllers
             }
 
         }
-        [HttpGet("GoogleLogin/{authCode}")]
-        public async Task<IActionResult> GoogleLogin( string authCode)
-        {
-            try
-            {
-                var result = await _googleAuthService.GetUserInfoAsync(authCode);
-                if (!result.Success)
-                    return BadRequest(result);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, Response<string>.Failure(new Error(ex.Message)));
-            }
-        }
+
 
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDTO model)

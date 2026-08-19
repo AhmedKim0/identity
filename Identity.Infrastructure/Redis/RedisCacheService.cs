@@ -25,7 +25,7 @@ public class RedisCacheService : IRedisCacheService
     {
         var value = await _database.StringGetAsync(key);
         return value.HasValue
-            ? JsonSerializer.Deserialize<T>(value)
+            ? JsonSerializer.Deserialize<T>(value.ToString())
             : default;
     }
 

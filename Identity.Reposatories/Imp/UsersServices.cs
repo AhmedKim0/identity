@@ -71,12 +71,12 @@ namespace Identity.Application.Imp
 
 
 
-                var user = new AppUser
-                {
-                    UserName = username,
-                    Email = email,
-                    PhoneNumber = phone,
-                };
+                var user = new AppUser(
+                
+                     username,
+                   email,
+                     phone
+                );
 
                 var result = await _unitOfWork._UserManager.CreateAsync(user, password);
                 if (!result.Succeeded)

@@ -16,10 +16,7 @@ namespace Identity.Infrastructure.UOW
         private readonly AppDbContext _dbContext;
         private IDbContextTransaction? _transaction;
 
-        public IEmailBodyRepository EmailBodies { get; }
-        public IEmailVerificationRepository EmailVerifications { get; }
-        public IOTPCodeRepository OTPCodes { get; }
-        public IOTPTryRepository OTPTrys { get; }
+
         public IPermissionRepository Permissions { get; }
         public IRolePermissionRepository RolePermissions { get; }
         public IUserTokenRepository UserTokens { get; }
@@ -30,10 +27,7 @@ namespace Identity.Infrastructure.UOW
 
         public UnitOfWork(
             AppDbContext context,
-            IEmailBodyRepository emailBodies,
-            IEmailVerificationRepository emailVerifications,
-            IOTPCodeRepository otpCodes,
-            IOTPTryRepository otpTrys,
+
             IPermissionRepository permissions,
             IRolePermissionRepository rolePermissions,
             IUserTokenRepository userTokens,
@@ -42,10 +36,7 @@ namespace Identity.Infrastructure.UOW
         )
         {
             _dbContext = context;
-            EmailBodies = emailBodies;
-            EmailVerifications = emailVerifications;
-            OTPCodes = otpCodes;
-            OTPTrys = otpTrys;
+
             Permissions = permissions;
             RolePermissions = rolePermissions;
             UserTokens = userTokens;

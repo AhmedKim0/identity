@@ -19,29 +19,34 @@ namespace Identity.Application.Imp
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         }
 
-        public async Task<Permission> GetPermissionByNameAsync(string permissionName)
+        public async Task<Permission?> GetPermissionByNameAsync(string permissionName)
         {
-            if (string.IsNullOrWhiteSpace(permissionName))
-                return new Permission();
+            if(string.IsNullOrWhiteSpace(permissionName))
+                return null;
 
-            if (_cache.TryGetValue(permissionName, out Permission cachedPermission))
+            if(_cache.TryGetValue(permissionName, out Permission? cachedPermission))
                 return cachedPermission;
 
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                var repo = scope.ServiceProvider.GetRequiredService<IPermissionRepository>();
-                var permission = await repo.Dbset().FirstOrDefaultAsync(x => x.NameLogical == permissionName);
+            using var scope = _serviceProvider.CreateScope();
 
-                if (permission != null)
-                {
-                    _cache.Set(permissionName, permission, new MemoryCacheEntryOptions
+            var repo = scope.ServiceProvider
+                .GetRequiredService<IPermissionRepository>();
+
+            var permission = await repo.Dbset()
+                .FirstOrDefaultAsync(x => x.NameLogical == permissionName);
+
+            if(permission != null)
+            {
+                _cache.Set(
+                    permissionName,
+                    permission,
+                    new MemoryCacheEntryOptions
                     {
                         AbsoluteExpirationRelativeToNow = _cacheDuration
                     });
-                }
-
-                return permission;
             }
+
+            return permission;
         }
 
         public async Task LoadAllPermissionsToCacheAsync()

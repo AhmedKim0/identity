@@ -10,7 +10,7 @@ namespace Identity.Domain.SharedEntities
     public interface IBaseEntity
     {
         [Key]
-        public int Id { get; set; }
-        public bool IsDeleted { get; set; }
+         int Id { get;  }
+         bool IsDeleted { get;  }
     }
 }

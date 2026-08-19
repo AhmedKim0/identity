@@ -9,9 +9,10 @@ namespace Identity.Application.DTO.RoleDTOs
     public  class RoleDTO
     {
         public int Id { get; set; }
-        public string Name { get; set; } = default!;
-        public string NameAr { get; set; } = default!;
+        public string LogicalName { get; set; } = default!;
+
         public string NameEn { get; set; } = default!;
+        public string NameAr { get; set; } = default!;
 
     }
 }

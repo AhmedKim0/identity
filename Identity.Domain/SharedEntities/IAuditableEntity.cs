@@ -7,14 +7,28 @@ using System.Threading.Tasks;
 
 namespace Identity.Domain.SharedEntities
 {
+
     public interface IAuditableEntity
     {
-        [Key]
-        public int Id { get; set; }
-        public bool IsDeleted { get; set; } 
-        public DateTime CreatedAtUtc { get; set; }
-        public int CreatedBy { get; set; }
-        public DateTime? UpdatedAtUtc { get; set; }
-        public int? UpdatedBy { get; set; }
+        int Id { get; }
+
+        bool IsDeleted { get; }
+
+        DateTime CreatedAtUtc { get; }
+
+        int CreatedBy { get; }
+
+        DateTime? UpdatedAtUtc { get; }
+
+        int? UpdatedBy { get; }
+
+        void SetCreatedAudit(int userId, DateTime createdAtUtc);
+
+        void SetUpdatedAudit(int userId, DateTime updatedAtUtc);
+
+        void SoftDelete();
+
+        void Restore();
     }
 }
+

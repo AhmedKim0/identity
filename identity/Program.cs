@@ -6,7 +6,6 @@ using Identity.Application.UOW;
 using Identity.DAL;
 using Identity.Domain.Entities;
 using Identity.Domain.IReposatory;
-using Identity.Infrastructure.EmailServices;
 using Identity.Infrastructure.Redis;
 using Identity.Infrastructure.Reposatory;
 using Identity.Infrastructure.Reposatory.Identity.Infrastructure.Reposatory;
@@ -59,10 +58,7 @@ internal class Program
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
         builder.Services.AddScoped<IRolePermissionRepository, RolePermissionRepository>();
-        builder.Services.AddScoped<IOTPCodeRepository, OTPCodeRepository>();
-        builder.Services.AddScoped<IOTPTryRepository, OTPTryRepository>();
-        builder.Services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();
-        builder.Services.AddScoped<IEmailBodyRepository, EmailBodyRepository>();
+
         builder.Services.AddScoped<IUserTokenRepository, UserTokenRepository>();
 
 
@@ -73,10 +69,8 @@ internal class Program
         builder.Services.AddScoped<IUserServices, UsersServices>();
         builder.Services.AddScoped<ITokenService,TokenService>();
         builder.Services.AddScoped<IPermissionService, PermissionService>();
-        builder.Services.AddScoped<IOTPService, OTPService>();
-        builder.Services.AddScoped<IEmailService, EmailService>();
         builder.Services.AddScoped<ILoginService, LoginService>();
-        builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+        //builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
         builder.Services.AddHttpClient();
         builder.Services.AddMemoryCache(); // singleton cache
         builder.Services.AddSingleton<IInMemory, InMemory>();

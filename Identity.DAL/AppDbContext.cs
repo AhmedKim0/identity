@@ -29,9 +29,7 @@ namespace Identity.DAL
         public DbSet<Permission> Permissions { get; set; }
         public DbSet<RolePermission> RolePermissions { get; set; }
 
-        public DbSet<OTPCode> oTPCodes { get; set; }
-        public DbSet<OTPTry> oTPTries { get; set; }
-        public DbSet<EmailBody> emailBodies { get; set; }
+ 
         public DbSet<IdentityUserRole<int>> UserRoles { get; set; }
 
 
@@ -55,19 +53,19 @@ namespace Identity.DAL
                 switch (entry.State)
                 {
                     case EntityState.Added:
-                        entity.CreatedAtUtc = DateTime.UtcNow;
-                        entity.CreatedBy = currentUserId;
+                        entity.SetCreatedAudit(currentUserId, DateTime.UtcNow);
+
                         break;
 
                     case EntityState.Modified:
-                        entity.UpdatedAtUtc = DateTime.UtcNow;
-                        entity.UpdatedBy = currentUserId;
+                        entity.SetUpdatedAudit(currentUserId, DateTime.UtcNow);
+
                         break;
 
                     case EntityState.Deleted:
                         if (entry.Entity is not IHardDelete)
                         {
-                            entity.IsDeleted = true;
+                            entity.SoftDelete();
                             entry.State = EntityState.Modified;
                         }
                         break;

@@ -18,10 +18,7 @@ namespace Identity.Application.UOW
 
 
 
-        IEmailBodyRepository EmailBodies { get; }
-        IEmailVerificationRepository EmailVerifications { get; }
-        IOTPCodeRepository OTPCodes { get; }
-        IOTPTryRepository OTPTrys { get; }
+
         IPermissionRepository Permissions { get; }
         IRolePermissionRepository RolePermissions { get; }
         IUserTokenRepository UserTokens { get; }

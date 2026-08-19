@@ -26,18 +26,16 @@ namespace Identity.Application.Imp
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRedisCacheService? _redisCacheService;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IEmailService _emailService;
-        private readonly IOTPService _oTPService;
+
         public LoginService(ITokenService tokenService, JwtSettings jwtSettings, IUnitOfWork unitOfWork, IRedisCacheService? redisCacheService
-            , IHttpContextAccessor httpContextAccessor, IEmailService emailService, IOTPService oTPService)
+            , IHttpContextAccessor httpContextAccessor)
         {
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _redisCacheService = redisCacheService;
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-            _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
-            _oTPService = oTPService ?? throw new ArgumentNullException(nameof(oTPService));
+
         }
 
         public async Task<Response<bool>> IsLoggedinAsync(LoginDTO model)
@@ -87,14 +85,13 @@ namespace Identity.Application.Imp
                 }; 
                 if (user == null || !await _unitOfWork._UserManager.CheckPasswordAsync(user, model.Password))
                     return Response<TokenDTO>.Failure(new Error("Invalid username or password"));
-                if (_jwtSettings.ConfirmEmail && ! await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
-                {
-                    if (!SharedFunctions.CanSendMail(user))
-                        return Response<TokenDTO>.Failure(new Error("Please Confirm your Email Later"));
+                //if (_jwtSettings.ConfirmEmail && ! await _unitOfWork._UserManager.IsEmailConfirmedAsync(user))
+                //{
+                //    if (!SharedFunctions.CanSendMail(user))
+                //        return Response<TokenDTO>.Failure(new Error("Please Confirm your Email Later"));
 
-                    await _oTPService.GenerateEmailVerificationTokenAsync(user.Email);
-                    return Response<TokenDTO>.Failure(new Error("Please Confirm your Email"));
-                }
+
+                //}
                 // i need sms provider!!!
 
                 //if (_jwtSettings.ConfirmPhone && !await _unitOfWork._UserManager.IsPhoneNumberConfirmedAsync(user))
@@ -106,23 +103,22 @@ namespace Identity.Application.Imp
                 //    return Response<TokenDTO>.Failure(new Error("Please Confirm your phone"));
                 //}
 
-                if (user.TwoFactorEnabled)
-                {
-                    var token = await _unitOfWork._UserManager.GenerateTwoFactorTokenAsync(user, "Email");
-                    if (string.IsNullOrEmpty(token))
-                        return Response<TokenDTO>.Failure(new Error("Failed to generate two-factor token. Please try again later."));
-                    var Email= await _emailService.GetEmailStructure(EmailStructure.Token,user.Email);
-                    Dictionary<string,string> replacements = new Dictionary<string, string>
-                    {
-                        { "type", "Email for Two Factor Authentication" },
-                        { "Link", user.UserName }
-                    };
-                    _emailService.ReplacePlaceholders(Email, replacements);
-                    await _emailService.SendEmailAsync(Email);
+                //if (user.TwoFactorEnabled)
+                //{
+                //    var token = await _unitOfWork._UserManager.GenerateTwoFactorTokenAsync(user, "Email");
+                //    if (string.IsNullOrEmpty(token))
+                //        return Response<TokenDTO>.Failure(new Error("Failed to generate two-factor token. Please try again later."));
+                //    var Email= await _emailService.GetEmailStructure(EmailStructure.Token,user.Email);
+                //    Dictionary<string,string> replacements = new Dictionary<string, string>
+                //    {
+                //        { "type", "Email for Two Factor Authentication" },
+                //        { "Link", user.UserName }
+                //    };
 
 
 
-                }
+
+                //}
                 var (accessToken, refreshToken) = await _tokenService.GenerateTokens(user);
 
                 if (_jwtSettings.SingleSession)

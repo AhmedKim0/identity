@@ -8,8 +8,9 @@ namespace Identity.Application.DTO.RoleDTOs
 {
     public class CreateRoleDTO
     {
-        public string Name { get; set; }
-        public string NameAr { get; set; }
+        public string LogicalName { get; set; }
         public string NameEn { get; set; }
+
+        public string NameAr { get; set; }
     }
 }
